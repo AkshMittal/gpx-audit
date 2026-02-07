@@ -598,7 +598,7 @@ function renderScatterPlot(containerId, pairs) {
           .style("visibility", "visible")
           .style("left", (event.pageX + 10) + "px")
           .style("top", (event.pageY - 10) + "px")
-          .html(`Δt: ${d.dtSec.toFixed(4)}s<br/>Δd: ${d.ddMeters.toFixed(2)}m`);
+          .html(`fromIndex: ${d.fromIndex}<br/>toIndex: ${d.toIndex}<br/>Δt: ${d.dtSec.toFixed(4)}s<br/>Δd: ${d.ddMeters.toFixed(2)}m`);
       })
       .on("mouseout", () => {
         tooltip.style("visibility", "hidden");

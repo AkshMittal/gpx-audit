@@ -327,9 +327,64 @@
             max-height: 200px;
             overflow-y: auto;
         }
+        /* scratchpad: same popup behavior, temporary notes, clears on refresh */
+        #scratchpad-popup {
+            position: fixed;
+            z-index: 1000;
+            min-width: 260px;
+            max-width: 90vw;
+            width: 280px;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+        #scratchpad-popup .scratchpad-header {
+            padding: 8px 12px;
+            background: #222;
+            border-bottom: 1px solid #333;
+            cursor: move;
+            user-select: none;
+            color: #fff;
+        }
+        #scratchpad-popup .scratchpad-header:hover {
+            background: #2a2a2a;
+        }
+        #scratchpad-popup .scratchpad-body {
+            padding: 12px;
+            color: #ccc;
+        }
+        #scratchpad-popup .scratchpad-body.hidden {
+            display: none;
+        }
+        #scratchpad-popup .scratchpad-note {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        #scratchpad-popup .scratchpad-textarea {
+            width: 100%;
+            min-height: 120px;
+            box-sizing: border-box;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
+    <div id="scratchpad-popup" aria-label="scratchpad">
+        <div class="scratchpad-header" id="scratchpad-header">scratchpad</div>
+        <div class="scratchpad-body hidden" id="scratchpad-body">
+            <p class="scratchpad-note">clears on refresh</p>
+            <textarea class="scratchpad-textarea" id="scratchpad-textarea" placeholder="free-form notes…"></textarea>
+        </div>
+    </div>
     <div id="block-audit-popup" aria-label="block-audit">
         <div class="block-audit-header" id="block-audit-header">block-audit</div>
         <div class="block-audit-body hidden" id="block-audit-body">
@@ -629,8 +684,8 @@
                 '    pairs_considered: ' + (m ? n(m.consecutivePointPairsConsidered) : 0),
                 '    collected: ' + (m && m.distanceDeltasM ? m.distanceDeltasM.length : 0),
                 '  distance_delta_summary:',
-                '    min_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.min.apply(null, m.distanceDeltasM).toFixed(1) : '0.0'),
-                '    max_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.max.apply(null, m.distanceDeltasM).toFixed(1) : '0.0'),
+                '    min_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.min.apply(null, m.distanceDeltasM.map(d => typeof d === 'number' ? d : d.ddMeters)).toFixed(1) : '0.0'),
+                '    max_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.max.apply(null, m.distanceDeltasM.map(d => typeof d === 'number' ? d : d.ddMeters)).toFixed(1) : '0.0'),
                 '',
                 '[joint time–distance audit]',
                 '  pairs_with_both_timestamps: ' + (m ? n(m.jointPairsWithBothTimestamps) : 0),
@@ -960,6 +1015,51 @@
         
         // Render placeholders when page loads
         window.addEventListener('DOMContentLoaded', renderPlaceholderGraphs);
+    </script>
+    <script>
+        (function () {
+            function initScratchpadPopup() {
+                var popup = document.getElementById('scratchpad-popup');
+                var header = document.getElementById('scratchpad-header');
+                var body = document.getElementById('scratchpad-body');
+                if (!popup || !header || !body) return;
+                var dragging = false, dragStartX = 0, dragStartY = 0, popupStartLeft = 0, popupStartTop = 0, headerClicked = false;
+                popup.style.left = '24px';
+                popup.style.top = (window.innerHeight - (body.classList.contains('hidden') ? header.offsetHeight : popup.offsetHeight) - 24) + 'px';
+                function clampToViewport(left, top) {
+                    var r = popup.getBoundingClientRect();
+                    left = Math.max(0, Math.min(left, window.innerWidth - r.width));
+                    top = Math.max(0, Math.min(top, window.innerHeight - r.height));
+                    return { left: left, top: top };
+                }
+                header.addEventListener('mousedown', function (e) {
+                    if (e.button !== 0) return;
+                    dragging = true;
+                    headerClicked = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    popupStartLeft = popup.offsetLeft;
+                    popupStartTop = popup.offsetTop;
+                });
+                window.addEventListener('mousemove', function (e) {
+                    if (!dragging) return;
+                    if (Math.abs(e.clientX - dragStartX) > 2 || Math.abs(e.clientY - dragStartY) > 2) headerClicked = false;
+                    var pos = clampToViewport(popupStartLeft + (e.clientX - dragStartX), popupStartTop + (e.clientY - dragStartY));
+                    popup.style.left = pos.left + 'px';
+                    popup.style.top = pos.top + 'px';
+                });
+                window.addEventListener('mouseup', function (e) {
+                    if (e.button !== 0) return;
+                    if (dragging && headerClicked) body.classList.toggle('hidden');
+                    dragging = false;
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initScratchpadPopup);
+            } else {
+                initScratchpadPopup();
+            }
+        })();
     </script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+OUTDATED. updated directly in the notes.html, dated 2/2/26
+
 ## 1. Essential context — what this tool is, what it is not
 
 This tool exists to analyze the **quality and internal consistency of a GPX file**, and by extension the **logging behavior of the device or software** that produced it.
