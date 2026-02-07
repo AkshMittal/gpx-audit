@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Correction Pipeline - Ingestion Module</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #000000;
+            color: #ffffff;
+        }
+        .container {
+            background: #000000;
+            padding: 20px;
+        }
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.5em;
+        }
+        .header-row h1 {
+            margin: 0;
+        }
+        .notes-link {
+            font-size: 16px;
+        }
+        .notes-link a {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+        .notes-link a:hover {
+            color: #cccccc;
+        }
+        h1 {
+            color: #ffffff;
+            font-weight: normal;
+        }
+        h2, h3 {
+            color: #ffffff;
+            font-weight: normal;
+        }
+        .file-input-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            color: #ffffff;
+        }
+        button {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        button:hover {
+            background: #333333;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+            max-height: 600px;
+            overflow-y: auto;
+            color: #ffffff;
+        }
+        .info {
+            color: #cccccc;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .plot-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            overflow: visible;
+        }
+        .plot-container h2 {
+            margin-top: 0;
+            color: #ffffff;
+        }
+        .plot-container svg {
+            overflow: visible;
+        }
+        .plot-container svg text {
+            fill: #ffffff;
+        }
+        .plot-container svg line {
+            stroke: #ffffff;
+        }
+        .plot-container svg path {
+            stroke: #ffffff;
+        }
+        .plot-container svg circle {
+            fill: #ffffff;
+        }
+        #visualization-section {
+            margin-top: 30px;
+        }
+        .download-button {
+            background: #000000;
+            margin-top: 10px;
+            border: 1px solid #ffffff;
+        }
+        .download-button:hover {
+            background: #333333;
+        }
+        .reset-button {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .reset-button:hover {
+            background: #333333;
+        }
+        .bandwidth-control {
+            margin: 15px 0;
+            padding: 10px;
+            background: #000000;
+            border: 1px solid #333333;
+        }
+        .bandwidth-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: normal;
+            color: #ffffff;
+        }
+        .bandwidth-control .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bandwidth-control input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #333333;
+            outline: none;
+        }
+        .bandwidth-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            cursor: pointer;
+        }
+        .bandwidth-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            cursor: pointer;
+            border: none;
+        }
+        .bandwidth-value {
+            min-width: 80px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #ffffff;
+        }
+        .explanation-text {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .explanation-text h3 {
+            margin-top: 0;
+            color: #ffffff;
+            font-weight: normal;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        .explanation-text h4 {
+            margin-top: 15px;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-weight: normal;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .explanation-text p {
+            margin: 5px 0;
+            padding-left: 20px;
+            color: #cccccc;
+        }
+        .pipeline-status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            color: #cccccc;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        .pipeline-status:empty {
+            display: none;
+        }
+        .flagged-events {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+        .flagged-events h3 {
+            color: #ffffff;
+            font-weight: normal;
+            font-size: 14px;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .flagged-dropdown {
+            margin-bottom: 10px;
+        }
+        .flagged-dropdown-header {
+            color: #ffffff;
+            cursor: pointer;
+            padding: 5px 0;
+            user-select: none;
+        }
+        .flagged-dropdown-header:hover {
+            color: #cccccc;
+        }
+        .flagged-dropdown-content {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-left: 20px;
+            margin-top: 5px;
+            display: none;
+        }
+        .flagged-dropdown-content.expanded {
+            display: block;
+        }
+        .flagged-event-item {
+            color: #999999;
+            padding: 2px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-row">
+            <h1>GPX Audit</h1>
+            <p class="notes-link"><a href="notes.html">notes</a></p>
+        </div>
+        <p class="info">An observation-first view into GPX logging behavior</p>
+        
+        <div class="file-input-section">
+            <label for="gpxFile">Select GPX File:</label>
+            <input type="file" id="gpxFile" accept=".gpx" />
+            <button onclick="loadAndParseGPX()">Parse GPX File</button>
+        </div>
+        
+        <div id="output"></div>
+        
+        <pre id="pipeline-status" class="pipeline-status"></pre>
+        
+        <div id="flagged-events" class="flagged-events"></div>
+        
+        <div id="visualization-section">
+            <div class="explanation-text">
+                <h3>How to read the graphs</h3>
+                <p>Interaction: Pan to inspect different ranges of the graph.</p>
+                
+                <h4>Time Delta KDE / Distance Delta KDE</h4>
+                <p>Shows the distribution of consecutive time or distance deltas derived from the GPX</p>
+                <p>Peaks indicate commonly occurring delta ranges</p>
+                <p>Spread indicates variability in sampling behavior</p>
+                <p>Multiple peaks may indicate changes in sampling mode or logging behavior</p>
+                <p>This does not imply correctness or quality by itself</p>
+                
+                <h4>Log-scaled x-axis</h4>
+                <p>The x-axis is log-scaled to expand detail near small deltas where most data lies</p>
+                <p>Values are shown in linear units, but spacing reflects logarithmic scaling</p>
+                
+                <h4>Rug plot</h4>
+                <p>Each dash represents one observation</p>
+                <p>The rug shows where data exists, not how many values are identical</p>
+                <p>Dense or cluttered regions usually indicate many similar, not identical, values</p>
+                <p>For density and dominance, refer to the KDE curve</p>
+            </div>
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Time Delta KDE</h2>
+                    <button class="reset-button" onclick="resetChart('time-kde-plot')">Reset View</button>
+                </div>
+                <div class="bandwidth-control">
+                    <label for="time-bandwidth-slider">KDE Bandwidth (seconds)</label>
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                        Controls how far in time each point spreads its influence.
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="time-bandwidth-slider" 
+                               oninput="updateTimeKDE(parseFloat(this.value))">
+                        <span class="bandwidth-value" id="time-bandwidth-value">-</span>
+                    </div>
+                </div>
+                <div id="time-kde-plot"></div>
+            </div>
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Distance Delta KDE</h2>
+                    <button class="reset-button" onclick="resetChart('distance-kde-plot')">Reset View</button>
+                </div>
+                <div class="bandwidth-control">
+                    <label for="distance-bandwidth-slider">KDE Bandwidth (meters)</label>
+                    <div class="slider-container">
+                        <input type="range" id="distance-bandwidth-slider" 
+                               oninput="updateDistanceKDE(parseFloat(this.value))">
+                        <span class="bandwidth-value" id="distance-bandwidth-value">-</span>
+                    </div>
+                </div>
+                <div id="distance-kde-plot"></div>
+            </div>
+            
+            <div class="explanation-text">
+                <h4>Time–Distance scatter plot</h4>
+                <p>Each point represents a consecutive time–distance pair</p>
+                <p>Continuous trails often indicate plausible movement</p>
+                <p>Isolated or extreme points may indicate logging noise or GPS faults</p>
+                <p>This view is diagnostic, not definitive</p>
+            </div>
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Time-Distance Scatterplot</h2>
+                    <button class="reset-button" onclick="resetChart('time-distance-scatter')">Reset View</button>
+                </div>
+                <div id="time-distance-scatter"></div>
+            </div>
+            
+            <div class="file-input-section">
+                <h3>Download Audit Data</h3>
+                <button class="download-button" onclick="downloadTimeDeltas()">Download Time Deltas JSON</button>
+                <button class="download-button" onclick="downloadDistanceDeltas()">Download Distance Deltas JSON</button>
+                <button class="download-button" onclick="downloadTimeDistancePairs()">Download Time-Distance Pairs JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="js/gpx-ingestion-module.js"></script>
+    <script src="js/timestamp-audit.js"></script>
+    <script src="js/sampling-audit.js"></script>
+    <script src="js/kde-visualization-module.js"></script>
+    <script>
+        // Browser-specific test function
+        async function loadAndParseGPX() {
+            const fileInput = document.getElementById('gpxFile');
+            const output = document.getElementById('output');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                output.textContent = 'Please select a GPX file first.';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            output.textContent = 'Loading and parsing GPX file...\n';
+            
+            try {
+                // Use the parseGPXFile function from the module
+                const result = await parseGPXFile(file);
+                const points = result.points;
+                const stats = result.stats;
+                
+                // Log the entire points array
+                // console.log('Parsed GPX points:', points);
+                
+                // Log statistics
+                // console.log('Total points found in GPX:', stats.totalPointsFound);
+                // console.log('Points discarded:', stats.pointsDiscarded);
+                // console.log('Remaining points:', stats.remainingPoints);
+                
+                // Run timestamp audit
+                const auditMetadata = auditTimestamps(points);
+                
+                // Run sampling audit (pass filename for download naming)
+                const samplingMetadata = auditSampling(points, file.name);
+                
+                // Store sampling metadata globally for download buttons
+                window.currentSamplingMetadata = samplingMetadata;
+                window.currentGpxFilename = file.name;
+                
+                // Clear any existing graphs before rendering new ones
+                const timeKdePlot = document.getElementById('time-kde-plot');
+                const distanceKdePlot = document.getElementById('distance-kde-plot');
+                const timeDistanceScatter = document.getElementById('time-distance-scatter');
+                
+                if (timeKdePlot && timeKdePlot.querySelector('svg')) {
+                    timeKdePlot.innerHTML = '';
+                }
+                if (distanceKdePlot && distanceKdePlot.querySelector('svg')) {
+                    distanceKdePlot.innerHTML = '';
+                }
+                if (timeDistanceScatter && timeDistanceScatter.querySelector('svg')) {
+                    timeDistanceScatter.innerHTML = '';
+                }
+                // Clear global chart data variables to prevent slider from reloading old charts
+                window.kdeTimeDeltasSec = null;
+                window.kdeDistanceDeltasM = null;
+                window.kdeTimeBandwidthLog = null;
+                window.kdeDistanceBandwidthLog = null;
+                
+                // Visualize sampling data (always: distance KDE uses geometry-only when no time progression)
+                visualizeSamplingData({
+                    timeDeltasMs: samplingMetadata.timeDeltasMs || [],
+                    distanceDeltasM: samplingMetadata.distanceDeltasM || [],
+                    timeDistancePairs: samplingMetadata.timeDistancePairs || []
+                });
+                
+                // Show visualization section
+                document.getElementById('visualization-section').style.display = 'block';
+                
+                // Update output
+                output.textContent = `GPX file parsed successfully: ${file.name}\n`;
+                
+                // Pipeline status readout (same factual data as console, no interpretation)
+                updatePipelineStatus(stats, auditMetadata, samplingMetadata);
+                
+                // Render flagged events dropdowns
+                renderFlaggedEvents(stats, auditMetadata, samplingMetadata);
+                
+            } catch (error) {
+                output.textContent = 'Error: ' + error.message;
+                console.error('GPX parsing error:', error);
+                document.getElementById('pipeline-status').textContent = '';
+                document.getElementById('flagged-events').innerHTML = '';
+            }
+        }
+        
+        function updatePipelineStatus(stats, auditMetadata, samplingMetadata) {
+            const s = stats;
+            const t = auditMetadata;
+            const m = samplingMetadata;
+            var n = function (v) { return typeof v === 'number' ? v : 0; };
+            var lines = [
+                '[pipeline status]',
+                '',
+                '[ingestion]',
+                '  points_detected: ' + (s ? s.totalPointsFound : 0),
+                '  points_discarded: ' + (s ? s.pointsDiscarded : 0),
+                '',
+                '[timestamp audit]',
+                '  timestamps_present: ' + (m && m.hasValidTimestamps ? 'true' : 'false'),
+                '  time_progression_present: ' + (m && m.hasTimeProgression ? 'true' : 'false'),
+                '',
+                '  missing_timestamps: ' + (t ? n(t.missingTimestampCount) : 0),
+                '  unparsable_timestamps: ' + (t ? n(t.unparsableTimestampCount) : 0),
+                '  duplicate_timestamps: ' + (t ? n(t.duplicateTimestampCount) : 0),
+                '  backward_timestamp_jumps: ' + (t ? n(t.backwardTimestampCount) : 0),
+                '  maximum_backward_jump_seconds: ' + (t && t.maxBackwardJumpMs != null ? t.maxBackwardJumpMs / 1000 : 0),
+                '',
+                '[sampling audit]',
+                '  consecutive_pairs_inspected: ' + (m ? n(m.consecutivePointPairsConsidered) : 0),
+                '',
+                '  time_deltas:',
+                '    collected_positive: ' + (m && m.timeDeltasMs ? m.timeDeltasMs.length : 0),
+                '    rejected_non_positive: ' + (m ? n(m.rejectedTimestampPairsDeltaLeqZero) : 0),
+                '  time_delta_summary:',
+                '    min_seconds: ' + (m && m.minDeltaMs != null ? m.minDeltaMs / 1000 : 0),
+                '    max_seconds: ' + (m && m.maxDeltaMs != null ? m.maxDeltaMs / 1000 : 0),
+                '',
+                '  distance_deltas:',
+                '    pairs_considered: ' + (m ? n(m.consecutivePointPairsConsidered) : 0),
+                '    collected: ' + (m && m.distanceDeltasM ? m.distanceDeltasM.length : 0),
+                '  distance_delta_summary:',
+                '    min_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.min.apply(null, m.distanceDeltasM).toFixed(1) : '0.0'),
+                '    max_meters: ' + (m && m.distanceDeltasM && m.distanceDeltasM.length > 0 ? Math.max.apply(null, m.distanceDeltasM).toFixed(1) : '0.0'),
+                '',
+                '[joint time–distance audit]',
+                '  pairs_with_both_timestamps: ' + (m ? n(m.jointPairsWithBothTimestamps) : 0),
+                '  joint_pairs_collected: ' + (m && m.timeDistancePairs ? m.timeDistancePairs.length : 0),
+                '',
+                '  rejected:',
+                '    missing_timestamp: ' + (m ? n(m.jointRejectedMissingTimestamp) : 0),
+                '    non_positive_dt: ' + (m ? n(m.jointRejectedNonPositiveDt) : 0)
+            ];
+            document.getElementById('pipeline-status').textContent = lines.join('\n');
+        }
+        
+        function renderFlaggedEvents(stats, auditMetadata, samplingMetadata) {
+            const container = document.getElementById('flagged-events');
+            container.innerHTML = '';
+            
+            const s = stats;
+            const t = auditMetadata;
+            const m = samplingMetadata;
+            
+            // Always show section title
+            const title = document.createElement('h3');
+            title.textContent = 'flagged events';
+            container.appendChild(title);
+            
+            // Collect all flagged event types
+            const hasRejectedCoords = s && s.rejectedCoordinates && s.rejectedCoordinates.length > 0;
+            const hasBackwardTimestamps = t && t.backwardTimestampEvents && t.backwardTimestampEvents.length > 0;
+            const hasDuplicateTimestamps = t && t.duplicateTimestampEvents && t.duplicateTimestampEvents.length > 0;
+            const hasNonPositiveDeltas = m && m.nonPositiveTimeDeltaEvents && m.nonPositiveTimeDeltaEvents.length > 0;
+            
+            // If no flagged events, show message
+            if (!hasRejectedCoords && !hasBackwardTimestamps && !hasDuplicateTimestamps && !hasNonPositiveDeltas) {
+                const message = document.createElement('div');
+                message.className = 'flagged-event-item';
+                message.textContent = 'no flagged events';
+                container.appendChild(message);
+                return;
+            }
+            
+            // Rejected coordinates
+            if (hasRejectedCoords) {
+                const items = s.rejectedCoordinates.map(e => {
+                    let reason = e.reason;
+                    // Simplify rejection reason for display
+                    if (reason.includes('not parseable as numbers')) {
+                        reason = 'invalid latitude / longitude';
+                    } else if (reason.includes('out of valid range')) {
+                        reason = 'invalid latitude / longitude';
+                    }
+                    return `index ${e.index} : ${reason}`;
+                });
+                const dropdown = createFlaggedDropdown('rejected coordinates', s.rejectedCoordinates.length, items);
+                container.appendChild(dropdown);
+            }
+            
+            // Backward timestamp transitions
+            if (hasBackwardTimestamps) {
+                const dropdown = createFlaggedDropdown(
+                    'backward timestamp transitions',
+                    t.backwardTimestampEvents.length,
+                    t.backwardTimestampEvents.map(e => `index ${e.prevIndex} → ${e.index} : ${e.prevTime} → ${e.currTime}`)
+                );
+                container.appendChild(dropdown);
+            }
+            
+            // Duplicate consecutive timestamps
+            if (hasDuplicateTimestamps) {
+                const dropdown = createFlaggedDropdown(
+                    'duplicate consecutive timestamps',
+                    t.duplicateTimestampEvents.length,
+                    t.duplicateTimestampEvents.map(e => `index ${e.prevIndex} → ${e.index} : identical timestamp`)
+                );
+                container.appendChild(dropdown);
+            }
+            
+            // Non-positive time deltas
+            if (hasNonPositiveDeltas) {
+                const dropdown = createFlaggedDropdown(
+                    'non-positive time deltas',
+                    m.nonPositiveTimeDeltaEvents.length,
+                    m.nonPositiveTimeDeltaEvents.map(e => {
+                        const deltaSec = (e.delta / 1000).toFixed(2);
+                        return `index ${e.prevIndex} → ${e.index} : delta ${deltaSec}s`;
+                    })
+                );
+                container.appendChild(dropdown);
+            }
+        }
+        
+        function createFlaggedDropdown(label, count, items) {
+            const dropdown = document.createElement('div');
+            dropdown.className = 'flagged-dropdown';
+            
+            const header = document.createElement('div');
+            header.className = 'flagged-dropdown-header';
+            header.textContent = `▶ ${label} (${count})`;
+            
+            const content = document.createElement('div');
+            content.className = 'flagged-dropdown-content';
+            
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flagged-event-item';
+                itemEl.textContent = item;
+                content.appendChild(itemEl);
+            });
+            
+            header.addEventListener('click', () => {
+                const isExpanded = content.classList.contains('expanded');
+                if (isExpanded) {
+                    content.classList.remove('expanded');
+                    header.textContent = `▶ ${label} (${count})`;
+                } else {
+                    content.classList.add('expanded');
+                    header.textContent = `▼ ${label} (${count})`;
+                }
+            });
+            
+            dropdown.appendChild(header);
+            dropdown.appendChild(content);
+            return dropdown;
+        }
+        
+        // Download functions for audit data
+        function downloadTimeDeltas() {
+            if (!window.currentSamplingMetadata || !window.currentSamplingMetadata.timeDeltasMs) {
+                alert('No time deltas data available. Please parse a GPX file first.');
+                return;
+            }
+            
+            const baseFilename = window.currentGpxFilename 
+                ? window.currentGpxFilename.replace(/\.gpx$/i, '') 
+                : 'gpx';
+            const filename = `${baseFilename}_time_deltas.json`;
+            
+            exportTimeDeltasJSON(window.currentSamplingMetadata.timeDeltasMs, filename);
+        }
+        
+        function downloadDistanceDeltas() {
+            if (!window.currentSamplingMetadata || !window.currentSamplingMetadata.distanceDeltasM) {
+                alert('No distance deltas data available. Please parse a GPX file first.');
+                return;
+            }
+            
+            const baseFilename = window.currentGpxFilename 
+                ? window.currentGpxFilename.replace(/\.gpx$/i, '') 
+                : 'gpx';
+            const filename = `${baseFilename}_distance_deltas.json`;
+            
+            exportDistanceDeltasJSON(window.currentSamplingMetadata.distanceDeltasM, filename);
+        }
+        
+        function downloadTimeDistancePairs() {
+            if (!window.currentSamplingMetadata || !window.currentSamplingMetadata.timeDistancePairs) {
+                alert('No time-distance pairs data available. Please parse a GPX file first.');
+                return;
+            }
+            
+            const baseFilename = window.currentGpxFilename 
+                ? window.currentGpxFilename.replace(/\.gpx$/i, '') 
+                : 'gpx';
+            const filename = `${baseFilename}_time_distance_pairs.json`;
+            
+            exportTimeDistancePairsJSON(window.currentSamplingMetadata.timeDistancePairs, filename);
+        }
+        
+        // Make parseGPX, auditTimestamps, and auditSampling available globally for console usage
+        window.parseGPX = parseGPX;
+        window.parseGPXFile = parseGPXFile;
+        window.auditTimestamps = auditTimestamps;
+        window.auditSampling = auditSampling;
+        window.visualizeSamplingData = visualizeSamplingData;
+        window.exportTimeDeltasJSON = exportTimeDeltasJSON;
+        window.exportDistanceDeltasJSON = exportDistanceDeltasJSON;
+        window.exportTimeDistancePairsJSON = exportTimeDistancePairsJSON;
+        window.resetChart = resetChart;
+        window.updateTimeKDE = updateTimeKDE;
+        window.updateDistanceKDE = updateDistanceKDE;
+        
+        // console.log('GPX Ingestion Module loaded. Use parseGPX(gpxString) or parseGPXFile(file) in console.');
+        // console.log('Timestamp Audit Module loaded. Use auditTimestamps(points) in console.');
+        // console.log('Sampling Audit Module loaded. Use auditSampling(points) in console.');
+        
+        // Render empty placeholder graphs on page load
+        function renderPlaceholderGraphs() {
+            const margin = { top: 40, right: 30, bottom: 60, left: 80 };
+            const width = 800 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            
+            // Placeholder for Time Delta KDE
+            const timeContainer = d3.select("#time-kde-plot");
+            timeContainer.selectAll("*").remove();
+            const timeSvg = timeContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const timeG = timeSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Draw axes
+            const timeXScale = d3.scaleLinear().domain([0.1, 100]).range([0, width]);
+            const timeYScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
+            timeG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(timeXScale).tickFormat(d => d.toFixed(1)))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            timeG.append("g")
+                .call(d3.axisLeft(timeYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            timeG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time Delta (seconds)");
+            timeG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Density");
+            
+            // Placeholder for Distance Delta KDE
+            const distContainer = d3.select("#distance-kde-plot");
+            distContainer.selectAll("*").remove();
+            const distSvg = distContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const distG = distSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const distXScale = d3.scaleLinear().domain([1, 1000]).range([0, width]);
+            const distYScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
+            distG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(distXScale).tickFormat(d => d.toFixed(0)))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            distG.append("g")
+                .call(d3.axisLeft(distYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            distG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Distance Delta (meters)");
+            distG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Density");
+            
+            // Placeholder for Time-Distance Scatterplot
+            const scatterContainer = d3.select("#time-distance-scatter");
+            scatterContainer.selectAll("*").remove();
+            const scatterSvg = scatterContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const scatterG = scatterSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const scatterXScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
+            const scatterYScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
+            scatterG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(scatterXScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            scatterG.append("g")
+                .call(d3.axisLeft(scatterYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            scatterG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time Delta (seconds)");
+            scatterG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Distance Delta (meters)");
+        }
+        
+        // Render placeholders when page loads
+        window.addEventListener('DOMContentLoaded', renderPlaceholderGraphs);
+    </script>
+</body>
+</html>

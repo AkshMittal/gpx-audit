@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>notes</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #000000;
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        a {
+            color: #cccccc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        h2 {
+            color: #ffffff;
+            font-weight: normal;
+            margin-top: 2em;
+            margin-bottom: 0.5em;
+        }
+        h2:first-of-type {
+            margin-top: 0;
+        }
+        h3 {
+            color: #ffffff;
+            font-weight: normal;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-size: 1em;
+        }
+        p {
+            color: #cccccc;
+            margin: 0.5em 0 1em 0;
+        }
+        ul {
+            color: #cccccc;
+            margin: 0.5em 0 1em 1.5em;
+            padding-left: 1.5em;
+        }
+        li {
+            margin: 0.25em 0;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #333333;
+            margin: 2em 0;
+        }
+        pre {
+            color: #cccccc;
+            margin: 1em 0;
+            padding-left: 1em;
+            white-space: pre-wrap;
+        }
+        code {
+            color: #cccccc;
+            font-family: inherit;
+        }
+        .nav {
+            margin-bottom: 2em;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav"><a href="index.html">← back to tool</a></div>
+
+    <h2>1. Essential context — what this tool is, what it is not</h2>
+
+    <p>This tool exists to analyze the <strong>quality and internal consistency of a GPX file</strong>, and by extension the <strong>logging behavior of the device or software</strong> that produced it.</p>
+
+    <p>It does <strong>not</strong> assign a score.<br>
+    It does <strong>not</strong> make predictions.<br>
+    It does <strong>not</strong> derive conclusions.</p>
+
+    <p>The tool exposes <strong>observable properties, constraints, and invariants</strong> present in the GPX. Any interpretation beyond that is intentionally left to the reader.</p>
+
+    <p>This is an <strong>observation-only instrument</strong>. It is not meant to be repurposed for ranking, validation of performance, or downstream automation.</p>
+
+    <h3>What this tool is not</h3>
+
+    <ul>
+        <li>Not a fitness or performance analysis tool</li>
+        <li>Not a route difficulty estimator</li>
+        <li>Not a GPS correction or smoothing utility</li>
+        <li>Not a GPX repair tool</li>
+        <li>Not a validator that decides whether a GPX is "good" or "bad"</li>
+    </ul>
+
+    <p>If you are looking for corrected data, inferred intent, or summarized judgments, this tool is intentionally not designed for that.</p>
+
+    <h3>Intended inputs and constraints</h3>
+
+    <p>This tool is best used with <strong>raw GPX files</strong>:</p>
+
+    <ul>
+        <li>recorded directly by a device or application</li>
+        <li>not manually merged</li>
+        <li>not resampled</li>
+        <li>not smoothed or pre-processed</li>
+    </ul>
+
+    <p>Merged or post-processed GPX files often introduce <strong>artificial invariants</strong> (uniform timestamps, reordered points, interpolated segments) that this system does not assume or correct for.</p>
+
+    <p>Some malformed or edited GPX files may still load, but the resulting audits should be treated with caution.</p>
+
+    <hr>
+
+    <h2>2. How the system behaves — pipeline guarantees and non-guarantees</h2>
+
+    <p>Although often described as a "pipeline", this system is <strong>not a traditional processing pipeline</strong>. It does not progressively clean, fix, or transform the GPX.</p>
+
+    <p>Most stages <strong>do not mutate data</strong>. They observe and audit.</p>
+
+    <h3>Ingestion and the only upstream mutation</h3>
+
+    <p>The only upstream mutation happens at ingestion:</p>
+
+    <ul>
+        <li>points with invalid or non-finite coordinates are rejected immediately</li>
+    </ul>
+
+    <p>Coordinates are treated as <strong>fundamental</strong>. Without valid spatial information, all other GPX attributes become meaningless.</p>
+
+    <p>After this step, the dataset is frozen.</p>
+
+    <h3>Timestamp audit philosophy</h3>
+
+    <p>Timestamps are treated as <strong>optional but informative</strong> data.</p>
+
+    <p>The timestamp audit checks only for:</p>
+
+    <ul>
+        <li>presence</li>
+        <li>parseability</li>
+        <li><strong>local ordering violations</strong></li>
+    </ul>
+
+    <p>Backtracking is flagged <strong>only for consecutive point-to-point comparisons</strong>.</p>
+
+    <p>Example:</p>
+
+    <pre>90 → 70 → 80</pre>
+
+    <p>The transition <code>90 → 70</code> is flagged.<br>
+    No assumptions are made about which value is "correct" across the larger block.</p>
+
+    <p>This conservative approach avoids block-level inference and prefers <strong>false negatives over false positives</strong>.</p>
+
+    <p>Timestamps are never reordered, corrected, or interpolated. They are flagged, not mutated.</p>
+
+    <h3>Why the pipeline is not linearly mutated</h3>
+
+    <p>All downstream audits — timestamp audit, sampling audit, and visualization — operate on the <strong>same ingestion-filtered data</strong>.</p>
+
+    <p>The timestamp audit does not produce corrected output, only observations. For this reason, the sampling audit intentionally reads from <strong>ingestion output</strong>, not from timestamp audit output.</p>
+
+    <p>This design prevents cascading assumptions and keeps each module epistemically isolated.</p>
+
+    <h3>Sampling audits and local computation</h3>
+
+    <p>Sampling-related metrics (time deltas, distance deltas, joint pairs) are computed <strong>locally and ephemerally</strong>.</p>
+
+    <p>These computations:</p>
+
+    <ul>
+        <li>do not mutate the GPX</li>
+        <li>do not write back corrected values</li>
+        <li>exist only to support visualization</li>
+    </ul>
+
+    <p>If timestamps do not show temporal progression, time-based deltas are disabled. In such cases, geometry-based distance deltas may still be computed.</p>
+
+    <hr>
+
+    <h2>3. Design and visualization notes — why these graphs, why these choices</h2>
+
+    <p>This section is a deeper dive into <strong>why the visualization looks the way it does</strong>. It is not required reading to use the tool correctly.</p>
+
+    <h3>Why KDE instead of histograms</h3>
+
+    <p>The first principle was to avoid <strong>hard binning</strong>.</p>
+
+    <p>Histogram bins introduce arbitrary boundaries. Two values on either side of a bin edge are treated as categorically different, while values far apart within the same bin are treated as identical.</p>
+
+    <p>For GPX sampling data, this is misleading.</p>
+
+    <p>Kernel Density Estimation (KDE) allows:</p>
+
+    <ul>
+        <li>a continuous view of distribution shape</li>
+        <li>every data point to influence nearby regions</li>
+        <li>no hard discontinuities introduced by bin edges</li>
+    </ul>
+
+    <h3>Why Gaussian kernels and why scaling mattered</h3>
+
+    <p>Gaussian kernels were chosen for their smoothness and simplicity. However, Gaussian kernels have <strong>infinite support</strong>, which introduces boundary bias when the data domain is strictly positive (as time and distance deltas are).</p>
+
+    <p>This problem was especially visible near the origin, where most real GPX data lives.</p>
+
+    <p>Instead of clipping or reflecting the distribution, the solution was to change the <strong>representation space</strong>.</p>
+
+    <h3>Why log-scaled axes</h3>
+
+    <p>Raw GPX deltas span multiple orders of magnitude:</p>
+
+    <ul>
+        <li>frequent small deltas from regular sampling</li>
+        <li>rare large deltas from pauses or logging gaps</li>
+    </ul>
+
+    <p>Using a linear scale collapses most of the data near zero and exaggerates outliers.</p>
+
+    <p>By computing KDE in <strong>log space</strong>:</p>
+
+    <ul>
+        <li>structure near the origin becomes visible</li>
+        <li>long tails remain representable</li>
+        <li>no artificial truncation is introduced</li>
+    </ul>
+
+    <p>Values are still displayed in linear units. Only spacing is logarithmic.</p>
+
+    <h3>Why controllable bandwidth</h3>
+
+    <p>There is no single "correct" bandwidth.</p>
+
+    <p>Different questions require different smoothness:</p>
+
+    <ul>
+        <li>broad trends in sampling behavior</li>
+        <li>sharp peaks indicating fixed sampling intervals</li>
+        <li>subtle secondary modes from power-saving or state changes</li>
+    </ul>
+
+    <p>Automatic rules (such as Silverman's rule) assume stable, well-behaved distributions. Raw GPX data often violates these assumptions.</p>
+
+    <p>A controllable bandwidth makes this tradeoff explicit instead of implicit.</p>
+
+    <h3>Why these three plots</h3>
+
+    <p>Each plot answers a different, non-overlapping question:</p>
+
+    <ul>
+        <li><strong>KDE plots</strong> show distribution shape and dominant sampling scales</li>
+        <li><strong>Rug plots</strong> show where data exists, not how much exists at a point</li>
+        <li><strong>Scatter plots</strong> show joint time–distance behavior</li>
+    </ul>
+
+    <p>The scatter plot is often the most diagnostic view. For human movement, a plausible GPX usually forms a continuous trail. Highly isolated points often indicate logging faults or GPS teleportation.</p>
+
+    <h3>What these plots do not do</h3>
+
+    <ul>
+        <li>They do not prove correctness</li>
+        <li>They do not validate activity quality</li>
+        <li>They do not summarize performance</li>
+    </ul>
+
+    <p>They make structure visible, and stop there.</p>
+
+    <hr>
+
+    <h3>Final note</h3>
+
+    <p>This tool is designed to make a GPX file <strong>legible</strong>, not authoritative.</p>
+
+    <p>It exposes structure, constraints, and failure modes, and deliberately preserves ambiguity.</p>
+
+    <p>Anything beyond that is left to human judgment.</p>
+</body>
+</html>
