@@ -146,8 +146,9 @@ function renderKDEPlot(containerId, kdePoints, peaks, rawData, xLabel, title) {
     .attr("width", width)
     .attr("height", height);
   
-  // Domain derived from KDE points in log space
-  const xMinLog = d3.min(kdePoints, d => d.xLog);
+  // Domain derived from KDE points in log space; lower bound includes zero so low values are not clipped
+  const safeLogZero = Math.log(1e-10);
+  const xMinLog = Math.min(safeLogZero, d3.min(kdePoints, d => d.xLog));
   const xMaxLog = d3.max(kdePoints, d => d.xLog);
   const xDomainOriginal = [xMinLog, xMaxLog];
   const yDomainOriginal = [0, d3.max(kdePoints, d => d.y)];
@@ -254,9 +255,8 @@ function renderKDEPlot(containerId, kdePoints, peaks, rawData, xLabel, title) {
     const xAxisFormatter = d3.axisBottom(xScale)
       .tickSizeOuter(0)
       .tickFormat(d => {
-        // Convert log-space tick value back to linear for display
         const linearValue = Math.exp(d);
-        return linearValue.toFixed(2);
+        return Math.abs(linearValue) >= 1 ? String(Math.round(linearValue)) : linearValue.toFixed(2);
       });
     xAxis.call(xAxisFormatter);
     yAxis.call(d3.axisLeft(yScale).tickSizeOuter(0));
@@ -440,6 +440,31 @@ function renderEmptyChartWithMessage(containerId, chartType, message) {
       .attr("fill", "#ffffff")
       .style("text-anchor", "middle")
       .text("Density");
+  } else if (chartType === "index-time-delta") {
+    const xScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
+    const yScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
+    g.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(xScale))
+      .attr("stroke", "#ffffff")
+      .attr("color", "#ffffff");
+    g.append("g")
+      .call(d3.axisLeft(yScale))
+      .attr("stroke", "#ffffff")
+      .attr("color", "#ffffff");
+    g.append("text")
+      .attr("x", width / 2)
+      .attr("y", height + 45)
+      .attr("fill", "#ffffff")
+      .style("text-anchor", "middle")
+      .text("Index");
+    g.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -50)
+      .attr("x", -height / 2)
+      .attr("fill", "#ffffff")
+      .style("text-anchor", "middle")
+      .text("Time delta (seconds, log-scaled)");
   } else {
     const xScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
     const yScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
@@ -512,12 +537,13 @@ function renderScatterPlot(containerId, pairs) {
     .attr("width", width)
     .attr("height", height);
   
-  // Domains in log space (same approach as KDE: log-transform for positioning, scaleLinear)
+  // Domains in log space; lower bound includes zero so low values are not clipped
   const safeLog = (v) => Math.log(Math.max(1e-10, v));
+  const safeLogZero = Math.log(1e-10);
   const xLogExtent = d3.extent(pairs, d => safeLog(d.dtSec));
   const yLogExtent = d3.extent(pairs, d => safeLog(d.ddMeters));
-  const xDomainOriginal = xLogExtent;
-  const yDomainOriginal = yLogExtent;
+  const xDomainOriginal = [Math.min(safeLogZero, xLogExtent[0]), xLogExtent[1]];
+  const yDomainOriginal = [Math.min(safeLogZero, yLogExtent[0]), yLogExtent[1]];
   
   const xScaleOriginal = d3.scaleLinear()
     .domain(xDomainOriginal)
@@ -582,20 +608,15 @@ function renderScatterPlot(containerId, pairs) {
     
     // Update axes: scale emits log-space values; convert to linear for display (same as KDE)
     const tickCount = 6;
+    const fmtLinear = (v) => Math.abs(v) >= 1 ? String(Math.round(v)) : v.toFixed(2);
     const xAxisBottom = d3.axisBottom(xScale)
       .ticks(tickCount)
       .tickSizeOuter(0)
-      .tickFormat(d => {
-        const linearValue = Math.exp(d);
-        return d3.format(".2g")(linearValue);
-      });
+      .tickFormat(d => fmtLinear(Math.exp(d)));
     const yAxisLeft = d3.axisLeft(yScale)
       .ticks(tickCount)
       .tickSizeOuter(0)
-      .tickFormat(d => {
-        const linearValue = Math.exp(d);
-        return d3.format(".2g")(linearValue);
-      });
+      .tickFormat(d => fmtLinear(Math.exp(d)));
     xAxis.call(xAxisBottom);
     yAxis.call(yAxisLeft);
   };
@@ -684,12 +705,339 @@ function renderScatterPlot(containerId, pairs) {
 }
 
 /**
+ * Sequence-aware scatter: X = toIndex (event order), Y = log(dtSec), color = log(ddMeters).
+ * Window = horizontal "microscope": only a segment of the sequence is shown, stretched across the chart width.
+ * Scrollbar pans the window; x-axis numbering updates to the current window's toIndex range.
+ *
+ * @param {string} containerId - ID of container element
+ * @param {Array<{fromIndex: number, toIndex: number, dtSec: number, ddMeters: number}>} pairs - Joint audit stream
+ */
+function renderIndexTimeDeltaScatter(containerId, pairs) {
+  const container = d3.select(`#${containerId}`);
+  container.selectAll("*").remove();
+
+  if (!pairs || pairs.length === 0) {
+    container.append("p").text("No data to visualize");
+    return;
+  }
+
+  const margin = { top: 40, right: 110, bottom: 100, left: 80 };
+  const width = 800 - margin.left - margin.right;
+  const height = 400 - margin.top - margin.bottom;
+
+  const WINDOW_SIZE = 200;
+  const windowSize = Math.min(WINDOW_SIZE, pairs.length);
+  const maxStart = Math.max(0, pairs.length - windowSize);
+
+  const svg = container.append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+
+  const g = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const clipPath = svg.append("defs").append("clipPath")
+    .attr("id", `clip-${containerId}`)
+    .append("rect")
+    .attr("width", width)
+    .attr("height", height);
+
+  const safeLog = (v) => Math.log(Math.max(1e-10, v));
+  const safeLogZero = Math.log(1e-10);
+
+  const yLogExtent = d3.extent(pairs, d => safeLog(d.dtSec));
+  const yLogMin = Math.min(safeLogZero, yLogExtent[0]);
+  const yLogMax = yLogExtent[1];
+  const ddMetersMin = Math.min(...pairs.map(d => d.ddMeters));
+  const ddMetersMax = Math.max(...pairs.map(d => d.ddMeters));
+  const maxDd = ddMetersMax;
+
+  // Log1p-based color transfer: ddMeters === 0 maps to 0, no epsilon; small distances get more range. Perceptual only.
+  const colorT = (d) => {
+    const dd = d.ddMeters;
+    if (!isFinite(dd) || dd < 0) return 0;
+    if (maxDd === 0) return 0;
+    const t = Math.log1p(dd) / Math.log1p(maxDd);
+    return Math.min(1, Math.max(0, t));
+  };
+  const colorTFromDd = (dd) => {
+    if (!isFinite(dd) || dd < 0) return 0;
+    if (maxDd === 0) return 0;
+    const t = Math.log1p(dd) / Math.log1p(maxDd);
+    return Math.min(1, Math.max(0, t));
+  };
+
+  // Y and color: stable (full data). Y domain includes zero so low values are not clipped. X: set per window (microscope).
+  const xScale = d3.scaleLinear().range([0, width]);
+  const yScaleOriginal = d3.scaleLinear()
+    .domain([yLogMin, yLogMax])
+    .range([height, 0]);
+  const yScale = yScaleOriginal.copy();
+  const yDomainOriginal = [yLogMin, yLogMax];
+  const colorScale = d3.scaleSequential(d3.interpolateViridis)
+    .domain([0, 1]);
+
+  const zoomG = g.append("g");
+  const plotGroup = zoomG.append("g").attr("clip-path", `url(#clip-${containerId})`);
+  const pointsGroup = plotGroup.append("g").attr("class", "points");
+
+  const xAxis = zoomG.append("g")
+    .attr("class", "x-axis")
+    .attr("transform", `translate(0,${height})`);
+  const yAxis = zoomG.append("g").attr("class", "y-axis");
+
+  const tooltip = container.append("div")
+    .style("position", "absolute")
+    .style("visibility", "hidden")
+    .style("background", "rgba(0, 0, 0, 0.8)")
+    .style("color", "white")
+    .style("padding", "5px")
+    .style("border-radius", "3px")
+    .style("pointer-events", "none");
+
+  let currentWindowStart = 0;
+
+  function redraw(windowStart) {
+    const start = Math.max(0, Math.min(windowStart, maxStart));
+    const visibleData = pairs.slice(start, start + windowSize);
+    if (visibleData.length === 0) return;
+
+    let xMin = visibleData[0].toIndex;
+    let xMax = visibleData[visibleData.length - 1].toIndex;
+    if (xMin === xMax) {
+      xMin -= 0.5;
+      xMax += 0.5;
+    }
+    xScale.domain([xMin, xMax]);
+
+    const circles = pointsGroup.selectAll("circle")
+      .data(visibleData);
+
+    circles.enter()
+      .append("circle")
+      .attr("class", "sequence-scatter-point")
+      .attr("r", 3)
+      .attr("opacity", 0.85)
+      .attr("stroke", "none")
+      .merge(circles)
+      .attr("cx", d => xScale(d.toIndex))
+      .attr("cy", d => yScale(safeLog(d.dtSec)))
+      .attr("fill", d => colorScale(colorT(d)))
+      .on("mouseover", function(event, d) {
+        tooltip
+          .style("visibility", "visible")
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 10) + "px")
+          .html(`fromIndex: ${d.fromIndex}<br/>toIndex: ${d.toIndex}<br/>dtSec: ${d.dtSec.toFixed(4)}<br/>ddMeters: ${d.ddMeters.toFixed(2)}`);
+      })
+      .on("mouseout", () => tooltip.style("visibility", "hidden"));
+
+    circles.exit().remove();
+
+    xAxis.call(d3.axisBottom(xScale).ticks(8).tickSizeOuter(0));
+    yAxis.call(d3.axisLeft(yScale)
+      .ticks(6)
+      .tickSizeOuter(0)
+      .tickFormat(d => {
+        const v = Math.exp(d);
+        return Math.abs(v) >= 1 ? String(Math.round(v)) : v.toFixed(2);
+      }));
+  }
+
+  redraw(0);
+
+  // Pan only (no zoom), same as other delta charts; Y-axis pannable
+  const zoom = d3.zoom()
+    .scaleExtent([1, 1])
+    .extent([[0, 0], [width, height]])
+    .on("zoom", function(event) {
+      const transform = event.transform;
+      let newYDomain = transform.rescaleY(yScaleOriginal).domain();
+      newYDomain[0] = Math.max(yDomainOriginal[0], Math.min(newYDomain[0], yDomainOriginal[1]));
+      newYDomain[1] = Math.max(newYDomain[0], Math.min(newYDomain[1], yDomainOriginal[1]));
+      const minSpan = 1e-10;
+      if (newYDomain[1] - newYDomain[0] < minSpan) {
+        zoomG.attr("transform", null);
+        return;
+      }
+      yScale.domain(newYDomain);
+      redraw(currentWindowStart);
+      zoomG.attr("transform", null);
+    });
+
+  zoomG.insert("rect", ":first-child")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("fill", "transparent")
+    .style("cursor", "grab");
+
+  zoomG.call(zoom);
+
+  xAxis.append("text")
+    .attr("x", width / 2)
+    .attr("y", 45)
+    .attr("fill", "black")
+    .style("text-anchor", "middle")
+    .text("toIndex (gpxIndex)");
+
+  yAxis.append("text")
+    .attr("transform", "rotate(-90)")
+    .attr("y", -50)
+    .attr("x", -height / 2)
+    .attr("fill", "black")
+    .style("text-anchor", "middle")
+    .text("time delta (seconds, log-scaled)");
+
+  svg.append("text")
+    .attr("x", (width + margin.left + margin.right) / 2)
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .text("Sequence-aware scatter (windowed)");
+
+  // Vertical color legend: log-spaced anchors in data space, same log1p transfer as points
+  const legendBarWidth = 14;
+  const legendBarHeight = height;
+  const legendX = margin.left + width + 12;
+  const legendY = margin.top;
+
+  const legendGradient = svg.append("defs").append("linearGradient")
+    .attr("id", `legend-gradient-${containerId}`)
+    .attr("x1", "0%")
+    .attr("x2", "0%")
+    .attr("y1", "100%")
+    .attr("y2", "0%");
+
+  const nStops = 64;
+  for (let i = 0; i <= nStops; i++) {
+    const t = i / nStops;
+    legendGradient.append("stop")
+      .attr("offset", t)
+      .attr("stop-color", colorScale(t));
+  }
+
+  svg.append("rect")
+    .attr("x", legendX)
+    .attr("y", legendY)
+    .attr("width", legendBarWidth)
+    .attr("height", legendBarHeight)
+    .attr("fill", `url(#legend-gradient-${containerId})`)
+    .attr("stroke", "#999");
+
+  const formatDd = (v) => {
+    if (v === 0) return "0";
+    if (Math.abs(v) >= 1) return String(Math.round(v));
+    return v.toFixed(2);
+  };
+  const formatDdApprox = (v) => v === 0 ? "0" : "~" + (Math.abs(v) >= 1 ? String(Math.round(v)) : v.toFixed(2));
+
+  const log1pMax = Math.log1p(maxDd);
+  const anchorValue = (frac) => (log1pMax <= 0 || frac <= 0) ? 0 : Math.exp(frac * log1pMax) - 1;
+  const anchors = maxDd <= 0
+    ? [0]
+    : [
+        0,
+        anchorValue(0.25),
+        anchorValue(0.5),
+        anchorValue(0.75),
+        maxDd
+      ];
+
+  const anchorLabels = maxDd <= 0
+    ? ["0 m"]
+    : [
+        "0 m",
+        formatDdApprox(anchorValue(0.25)) + " m",
+        formatDdApprox(anchorValue(0.5)) + " m",
+        formatDdApprox(anchorValue(0.75)) + " m",
+        formatDd(maxDd) + " m"
+      ];
+
+  const legendGroup = svg.append("g").attr("class", "color-legend");
+  legendGroup.append("text")
+    .attr("x", legendX + legendBarWidth / 2)
+    .attr("y", legendY - 8)
+    .attr("text-anchor", "middle")
+    .attr("font-size", "10px")
+    .attr("fill", "#555")
+    .text("distance delta (log-scaled color)");
+
+  anchors.forEach((val, i) => {
+    const t = colorTFromDd(val);
+    const y = legendY + (1 - t) * legendBarHeight;
+    legendGroup.append("line")
+      .attr("x1", legendX)
+      .attr("x2", legendX + legendBarWidth)
+      .attr("y1", y)
+      .attr("y2", y)
+      .attr("stroke", "#333")
+      .attr("stroke-width", 1);
+    legendGroup.append("text")
+      .attr("x", legendX + legendBarWidth + 4)
+      .attr("y", y)
+      .attr("dy", "0.35em")
+      .attr("font-size", "9px")
+      .attr("fill", "#333")
+      .text(anchorLabels[i]);
+  });
+
+  let slider;
+  let labelSpan;
+  if (maxStart > 0) {
+    const controlDiv = container.append("div")
+      .style("margin-top", "8px")
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("gap", "8px");
+
+    controlDiv.append("label")
+      .attr("for", `${containerId}-window-slider`)
+      .text("Pan window (event index): ");
+
+    slider = controlDiv.append("input")
+      .attr("id", `${containerId}-window-slider`)
+      .attr("type", "range")
+      .attr("min", 0)
+      .attr("max", maxStart)
+      .attr("value", 0)
+      .attr("step", 1)
+      .style("flex", "1");
+
+    labelSpan = controlDiv.append("span")
+      .style("min-width", "100px")
+      .text(`0 – ${windowSize}`);
+
+    slider.on("input", function() {
+      const val = +this.value;
+      currentWindowStart = val;
+      labelSpan.text(`${val} – ${val + windowSize}`);
+      redraw(val);
+    });
+  }
+
+  window[`${containerId}_reset`] = function() {
+    yScale.domain([yLogMin, yLogMax]);
+    currentWindowStart = 0;
+    redraw(0);
+    if (slider) {
+      slider.property("value", 0);
+      if (labelSpan) labelSpan.text(`0 – ${windowSize}`);
+    }
+    zoomG.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+  };
+
+  window[`${containerId}_zoom`] = zoom;
+  window[`${containerId}_g`] = zoomG;
+}
+
+/**
  * Main function to visualize sampling audit data
  * 
  * @param {Object} samplingData - Object containing:
- *   - timeDeltasMs: Array<number> - Time deltas in milliseconds
- *   - distanceDeltasM: Array<number> - Distance deltas in meters
- *   - timeDistancePairs: Array<{dtSec: number, ddMeters: number}> - Joint pairs
+ *   - timeDeltasMs: Array<{fromIndex, toIndex, dtSec}> - Time delta records (referential)
+ *   - distanceDeltasM: Array<{fromIndex, toIndex, ddMeters}> - Distance delta records (referential)
+ *   - timeDistancePairs: Array<{fromIndex, toIndex, dtSec, ddMeters}> - Joint pairs
  * @param {Object} options - Visualization options
  *   - timeBandwidth: number - Bandwidth for time delta KDE (default: adaptive)
  *   - distanceBandwidth: number - Bandwidth for distance delta KDE (default: adaptive)
@@ -699,12 +1047,13 @@ function visualizeSamplingData(samplingData, options = {}) {
   const timeDeltasMsSafe = timeDeltasMs || [];
   const pairs = timeDistancePairs || [];
 
-  // Convert time deltas from milliseconds to seconds for KDE
-  const timeDeltasSec = timeDeltasMsSafe.map(ms => ms / 1000);
+  // Extract numeric values for KDE (time deltas: { fromIndex, toIndex, dtSec }; distance: { fromIndex, toIndex, ddMeters })
+  const timeDeltasSec = timeDeltasMsSafe.map(d => d.dtSec);
+  const distanceDeltasMValues = (distanceDeltasM || []).map(d => (typeof d === 'number' ? d : d.ddMeters));
 
   // Transform data to log space for bandwidth computation
   const timeDeltasSecLog = timeDeltasSec.filter(d => d > 0 && isFinite(d)).map(d => Math.log(d));
-  const distanceDeltasMLog = distanceDeltasM.filter(d => d > 0 && isFinite(d)).map(d => Math.log(d));
+  const distanceDeltasMLog = distanceDeltasMValues.filter(d => d > 0 && isFinite(d)).map(d => Math.log(d));
 
   const hasValidTimeData = timeDeltasSecLog.length > 0;
   const hasValidDistanceData = distanceDeltasMLog.length > 0;
@@ -720,6 +1069,7 @@ function visualizeSamplingData(samplingData, options = {}) {
   if (!hasValidTimeData) {
     renderEmptyChartWithMessage("time-kde-plot", "time-kde", "valid timestamps not found in gpx");
     renderEmptyChartWithMessage("time-distance-scatter", "scatter", "valid timestamps not found in gpx");
+    renderEmptyChartWithMessage("index-time-delta-scatter", "index-time-delta", "valid timestamps not found in gpx");
     window.kdeTimeDeltasSec = null;
     window.kdeTimeBandwidthLog = null;
   }
@@ -735,11 +1085,11 @@ function visualizeSamplingData(samplingData, options = {}) {
     const distanceN = distanceDeltasMLog.length;
     distanceBandwidthLog = options.distanceBandwidth ? Math.log(options.distanceBandwidth) : (1.06 * distanceStdDevLog * Math.pow(distanceN, -0.2));
 
-    distanceKDE = computeKDE(distanceDeltasM, distanceBandwidthLog);
+    distanceKDE = computeKDE(distanceDeltasMValues, distanceBandwidthLog);
     distancePeaks = detectPeaks(distanceKDE);
-    window.kdeDistanceDeltasM = distanceDeltasM;
+    window.kdeDistanceDeltasM = distanceDeltasMValues;
     window.kdeDistanceBandwidthLog = distanceBandwidthLog;
-    renderKDEPlot("distance-kde-plot", distanceKDE, distancePeaks, distanceDeltasM, "Distance Delta (meters)", "Distance Delta KDE");
+    renderKDEPlot("distance-kde-plot", distanceKDE, distancePeaks, distanceDeltasMValues, "Distance Delta (meters)", "Distance Delta KDE");
   }
 
   // Time KDE and scatter only when valid time data present
@@ -753,6 +1103,7 @@ function visualizeSamplingData(samplingData, options = {}) {
     window.kdeTimeBandwidthLog = timeBandwidthLog;
     renderKDEPlot("time-kde-plot", timeKDE, timePeaks, timeDeltasSec, "Time Delta (seconds)", "Time Delta KDE");
     renderScatterPlot("time-distance-scatter", pairs);
+    renderIndexTimeDeltaScatter("index-time-delta-scatter", pairs);
   }
   
   // Initialize bandwidth sliders operating natively in log-space
@@ -835,6 +1186,11 @@ function visualizeSamplingData(samplingData, options = {}) {
  * @param {string} containerId - ID of the chart container to reset
  */
 function resetChart(containerId) {
+  const customReset = window[`${containerId}_reset`];
+  if (typeof customReset === "function") {
+    customReset();
+    return;
+  }
   const zoom = window[`${containerId}_zoom`];
   const g = window[`${containerId}_g`];
   

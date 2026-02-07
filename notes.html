@@ -179,6 +179,25 @@
     </ul>
 
     <p>If timestamps do not show temporal progression, time-based deltas are disabled. In such cases, geometry-based distance deltas may still be computed.</p>
+        
+    <h3>On zero distance deltas</h3>
+
+    <p>Distance deltas equal to zero are treated as <strong>informative</strong>, not as errors or noise.</p>
+
+    <p>A zero distance delta can arise from:</p>
+
+    <ul>
+    <li>intentional stationary logging</li>
+    <li>power-saving or background sampling modes</li>
+    <li>device firmware that logs position even when movement is absent</li>
+    <li>GPS jitter suppression or coordinate quantization</li>
+    </ul>
+
+    <p>Earlier assumptions that equated “low activity” only with large time gaps and small spatial jumps are insufficient.</p>
+
+    <p>In many real GPX files, low activity manifests as <strong>many consecutive samples with small or zero distance deltas</strong> at a constant sampling rate.</p>
+
+    <p>For this reason, zero distance deltas are preserved and visualized rather than filtered.</p>
 
     <hr>
 
@@ -258,6 +277,19 @@
     </ul>
 
     <p>The scatter plot is often the most diagnostic view. For human movement, a plausible GPX usually forms a continuous trail. Highly isolated points often indicate logging faults or GPS teleportation.</p>
+    <p>However, joint time–distance scatter plots alone are insufficient.</p>
+
+    <p>They can identify isolated outliers (e.g. large time delta with small distance), but they do not capture <strong>local structure</strong>.</p>
+
+    <p>A device that continues logging at a fixed cadence during rest will produce:</p>
+
+    <ul>
+    <li>small time deltas</li>
+    <li>small or zero distance deltas</li>
+    <li>dense, locally structured regions in the data</li>
+    </ul>
+
+    <p>These patterns are not visible as outliers and are easily misinterpreted if temporal sequence is ignored.</p>
 
     <h3>What these plots do not do</h3>
 
@@ -265,9 +297,36 @@
         <li>They do not prove correctness</li>
         <li>They do not validate activity quality</li>
         <li>They do not summarize performance</li>
+        <li>They do not collapse local structure into global categories</li>
     </ul>
 
     <p>They make structure visible, and stop there.</p>
+
+    <h3>Why a sequence-aware scatter plot</h3>
+
+    <p>To address the limitations of global scatter plots, the tool introduces a <strong>sequence-aware scatter plot</strong>.</p>
+
+    <p>This plot preserves:</p>
+
+    <ul>
+        <li>event order via GPX index</li>
+        <li>local continuity in time deltas</li>
+        <li>local continuity in distance deltas</li>
+    </ul>
+
+    <p>Instead of treating all points as exchangeable, the sequence-aware view makes it possible to inspect <strong>local regions</strong> of the recording.</p>
+
+    <p>This allows:</p>
+
+    <ul>
+        <li>distinguishing true pauses from sparse logging gaps</li>
+        <li>identifying stationary logging under constant sampling</li>
+        <li>observing device state transitions over time</li>
+    </ul>
+
+    <p>The goal is not classification, but <strong>local legibility</strong>.</p>
+
+    <p>No attempt is made to label behavior as “rest”, “movement”, or “error”. The structure is exposed and left uninterpreted.</p>
 
     <hr>
 

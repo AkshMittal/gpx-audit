@@ -105,7 +105,7 @@
         .plot-container svg path {
             stroke: #ffffff;
         }
-        .plot-container svg circle {
+        .plot-container svg circle:not(.sequence-scatter-point) {
             fill: #ffffff;
         }
         #visualization-section {
@@ -262,9 +262,83 @@
             padding: 2px 0;
             font-size: 12px;
         }
+        /* block-audit popup: draggable, stays in viewport, reveal on click; info not reset when closed */
+        #block-audit-popup {
+            position: fixed;
+            z-index: 1000;
+            min-width: 260px;
+            max-width: 90vw;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+        #block-audit-popup .block-audit-header {
+            padding: 8px 12px;
+            background: #222;
+            border-bottom: 1px solid #333;
+            cursor: move;
+            user-select: none;
+            color: #fff;
+        }
+        #block-audit-popup .block-audit-header:hover {
+            background: #2a2a2a;
+        }
+        #block-audit-popup .block-audit-body {
+            padding: 12px;
+            color: #ccc;
+        }
+        #block-audit-popup .block-audit-body.hidden {
+            display: none;
+        }
+        #block-audit-popup label {
+            display: block;
+            margin-top: 8px;
+            color: #fff;
+        }
+        #block-audit-popup input[type="number"] {
+            width: 80px;
+            margin-left: 8px;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 4px;
+        }
+        #block-audit-popup button.block-audit-run {
+            margin-top: 10px;
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        #block-audit-popup button.block-audit-run:hover {
+            background: #333;
+        }
+        #block-audit-popup .block-audit-result {
+            margin-top: 12px;
+            padding: 8px;
+            background: #000;
+            border: 1px solid #333;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
+    <div id="block-audit-popup" aria-label="block-audit">
+        <div class="block-audit-header" id="block-audit-header">block-audit</div>
+        <div class="block-audit-body hidden" id="block-audit-body">
+            <label>fromIndex <input type="number" id="block-audit-from" min="0" value="0" /></label>
+            <label>toIndex <input type="number" id="block-audit-to" min="0" value="0" /></label>
+            <button type="button" class="block-audit-run" id="block-audit-run">Run</button>
+            <pre class="block-audit-result" id="block-audit-result"></pre>
+        </div>
+    </div>
     <div class="container">
         <div class="header-row">
             <h1>GPX Audit</h1>
@@ -344,11 +418,26 @@
             
             <div class="explanation-text">
                 <h4>Time–Distance scatter plot</h4>
-                <p>Each point represents a consecutive time–distance pair</p>
-                <p>Continuous trails often indicate plausible movement</p>
-                <p>Isolated or extreme points may indicate logging noise or GPS faults</p>
-                <p>This view is diagnostic, not definitive</p>
+              
+                <p>Each point represents one consecutive pair of GPX points.</p>
+                <p>The x-axis shows the time delta between points.</p>
+                <p>The y-axis shows the distance delta between the same points.</p>
+              
+                <p>This plot is a <strong>global joint view</strong>.</p>
+                <p>It shows how time gaps and spatial movement relate across the entire file, without preserving sequence.</p>
+              
+                <p>Common interpretations:</p>
+                <p>• Large time delta + small distance may indicate pauses or logging gaps</p>
+                <p>• Large distance + small time may indicate GPS jumps or teleportation</p>
+                <p>• Dense clouds near the origin often indicate regular sampling</p>
+              
+                <p>Important limitation:</p>
+                <p>This plot does <strong>not</strong> preserve temporal order.</p>
+                <p>Points that are far apart in time may appear adjacent.</p>
+              
+                <p>As a result, this view is best used to identify <strong>global regimes and extreme outliers</strong>, not local behavior.</p>
             </div>
+              
             
             <div class="plot-container">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -356,6 +445,47 @@
                     <button class="reset-button" onclick="resetChart('time-distance-scatter')">Reset View</button>
                 </div>
                 <div id="time-distance-scatter"></div>
+            </div>
+
+            <div class="explanation-text">
+                <h4>Sequence-aware scatter plot</h4>
+              
+                <p>This plot preserves <strong>event order</strong>.</p>
+                <p>The x-axis represents GPX index (event sequence).</p>
+                <p>The y-axis represents time delta between consecutive points (log-scaled).</p>
+              
+                <p>Each point still represents one consecutive point pair, but position now reflects <strong>where it occurred in the recording</strong>.</p>
+              
+                <p>The color of each point encodes the corresponding distance delta.</p>
+                <p>Refer to the color legend to understand how distance varies over time.</p>
+              
+                <p>This view is designed for <strong>local inspection</strong>.</p>
+                <p>It allows patterns to be read along the timeline rather than across the entire dataset.</p>
+              
+                <p>What to look for:</p>
+                <p>• Extended horizontal bands indicate stable sampling intervals</p>
+                <p>• Vertical changes indicate sudden shifts in logging behavior</p>
+                <p>• Dense regions with low distance color may indicate stationary or low-activity logging</p>
+                <p>• Abrupt color changes may indicate transitions between movement states</p>
+              
+                <p>This plot does not classify behavior.</p>
+                <p>It makes <strong>local structure visible</strong> so it can be judged in context.</p>
+            </div>
+            <div class="explanation-text">
+                <p>
+                  The time–distance scatter and the sequence-aware scatter are complementary.
+                  The former reveals global joint structure.
+                  The latter reveals how that structure unfolds locally over time.
+                </p>
+            </div>
+                
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Sequence-aware scatter (windowed)</h2>
+                    <button class="reset-button" onclick="resetChart('index-time-delta-scatter')">Reset View</button>
+                </div>
+                <div id="index-time-delta-scatter"></div>
             </div>
             
             <div class="file-input-section">
@@ -371,6 +501,7 @@
     <script src="js/gpx-ingestion-module.js"></script>
     <script src="js/timestamp-audit.js"></script>
     <script src="js/sampling-audit.js"></script>
+    <script src="js/local-block-audit.js"></script>
     <script src="js/kde-visualization-module.js"></script>
     <script>
         // Browser-specific test function
@@ -406,14 +537,16 @@
                 // Run sampling audit (pass filename for download naming)
                 const samplingMetadata = auditSampling(points, file.name);
                 
-                // Store sampling metadata globally for download buttons
+                // Store sampling metadata and points globally for download buttons and block audit
                 window.currentSamplingMetadata = samplingMetadata;
                 window.currentGpxFilename = file.name;
+                window.currentPoints = points;
                 
                 // Clear any existing graphs before rendering new ones
                 const timeKdePlot = document.getElementById('time-kde-plot');
                 const distanceKdePlot = document.getElementById('distance-kde-plot');
                 const timeDistanceScatter = document.getElementById('time-distance-scatter');
+                const indexTimeDeltaScatter = document.getElementById('index-time-delta-scatter');
                 
                 if (timeKdePlot && timeKdePlot.querySelector('svg')) {
                     timeKdePlot.innerHTML = '';
@@ -423,6 +556,9 @@
                 }
                 if (timeDistanceScatter && timeDistanceScatter.querySelector('svg')) {
                     timeDistanceScatter.innerHTML = '';
+                }
+                if (indexTimeDeltaScatter && indexTimeDeltaScatter.querySelector('svg')) {
+                    indexTimeDeltaScatter.innerHTML = '';
                 }
                 // Clear global chart data variables to prevent slider from reloading old charts
                 window.kdeTimeDeltasSec = null;
@@ -545,7 +681,7 @@
                     } else if (reason.includes('out of valid range')) {
                         reason = 'invalid latitude / longitude';
                     }
-                    return `index ${e.index} : ${reason}`;
+                    return `gpxIndex ${e.gpxIndex} : ${reason}`;
                 });
                 const dropdown = createFlaggedDropdown('rejected coordinates', s.rejectedCoordinates.length, items);
                 container.appendChild(dropdown);
@@ -578,7 +714,7 @@
                     m.nonPositiveTimeDeltaEvents.length,
                     m.nonPositiveTimeDeltaEvents.map(e => {
                         const deltaSec = (e.delta / 1000).toFixed(2);
-                        return `index ${e.prevIndex} → ${e.index} : delta ${deltaSec}s`;
+                        return `gpxIndex ${e.fromIndex} → ${e.toIndex} : delta ${deltaSec}s`;
                     })
                 );
                 container.appendChild(dropdown);
@@ -787,6 +923,39 @@
                 .attr("fill", "#ffffff")
                 .style("text-anchor", "middle")
                 .text("Distance Delta (meters)");
+            
+            // Placeholder for Index–Time Delta Scatterplot
+            const indexScatterContainer = d3.select("#index-time-delta-scatter");
+            indexScatterContainer.selectAll("*").remove();
+            const indexScatterSvg = indexScatterContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const indexScatterG = indexScatterSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            const indexScatterXScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
+            const indexScatterYScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
+            indexScatterG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(indexScatterXScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            indexScatterG.append("g")
+                .call(d3.axisLeft(indexScatterYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            indexScatterG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Index");
+            indexScatterG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time delta (seconds, log-scaled)");
         }
         
         // Render placeholders when page loads

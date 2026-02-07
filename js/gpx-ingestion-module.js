@@ -6,13 +6,14 @@
 
 /**
  * Helper function to parse a single point element (wpt, rtept, or trkpt)
- * All three types share the same structure
+ * All three types share the same structure.
+ * gpxIndex is the absolute position in the original GPX stream (assigned before validation).
  * @param {Element} pointElement - The point XML element
- * @param {number} index - Index of the point
+ * @param {number} gpxIndex - Absolute index of this point in the GPX stream (consumed for this point whether valid or not)
  * @param {string} pointType - Type of point: 'wpt', 'rtept', or 'trkpt'
  * @returns {Object} Object with {valid: boolean, point: Object|null, rejectionReason: string|null, rawData: Object}
  */
-function parsePointElement(pointElement, index, pointType) {
+function parsePointElement(pointElement, gpxIndex, pointType) {
   // Extract raw data for logging rejected points
   const rawLat = pointElement.getAttribute('lat');
   const rawLon = pointElement.getAttribute('lon');
@@ -21,7 +22,7 @@ function parsePointElement(pointElement, index, pointType) {
   
   const rawData = {
     pointType: pointType,
-    index: index,
+    gpxIndex: gpxIndex,
     lat: rawLat,
     lon: rawLon,
     ele: rawEle,
@@ -76,7 +77,7 @@ function parsePointElement(pointElement, index, pointType) {
   return {
     valid: true,
     point: {
-      index: index,
+      gpxIndex: gpxIndex,
       pointType: pointType, // 'wpt', 'rtept', or 'trkpt'
       lat: lat,
       lon: lon,
@@ -106,15 +107,15 @@ function parseGPX(gpxString) {
   }
   
   const points = [];
-  let globalIndex = 0;
+  let gpxIndex = 0;
   let totalPointsFound = 0;
   let pointsDiscarded = 0;
   let firstRejectionLogged = false;
   const rejectedCoordinates = [];
   
-  // Helper function to process a point and track rejections
+  // Helper: increment gpxIndex for every GPX point encountered (accepted or rejected)
   const processPoint = (pointElement, pointType) => {
-    const result = parsePointElement(pointElement, globalIndex++, pointType);
+    const result = parsePointElement(pointElement, gpxIndex++, pointType);
     if (result.valid) {
       points.push(result.point);
     } else {
@@ -127,7 +128,7 @@ function parseGPX(gpxString) {
       }
       // Collect all rejected coordinates for flagged events
       rejectedCoordinates.push({
-        index: result.rawData.index,
+        gpxIndex: result.rawData.gpxIndex,
         reason: result.rejectionReason
       });
     }
