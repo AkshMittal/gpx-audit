@@ -407,7 +407,7 @@ function renderEmptyChartWithMessage(containerId, chartType, message) {
       .attr("y", height + 45)
       .attr("fill", "#ffffff")
       .style("text-anchor", "middle")
-      .text("Time Delta (seconds)");
+      .text("Time Delta (seconds, log-scaled)");
     g.append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", -50)
@@ -432,7 +432,7 @@ function renderEmptyChartWithMessage(containerId, chartType, message) {
       .attr("y", height + 45)
       .attr("fill", "#ffffff")
       .style("text-anchor", "middle")
-      .text("Distance Delta (meters)");
+      .text("Distance Delta (meters, log-scaled)");
     g.append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", -50)
@@ -457,14 +457,14 @@ function renderEmptyChartWithMessage(containerId, chartType, message) {
       .attr("y", height + 45)
       .attr("fill", "#ffffff")
       .style("text-anchor", "middle")
-      .text("Time Delta (seconds)");
+      .text("Time Delta (seconds, log-scaled)");
     g.append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", -50)
       .attr("x", -height / 2)
       .attr("fill", "#ffffff")
       .style("text-anchor", "middle")
-      .text("Distance Delta (meters)");
+      .text("Distance Delta (meters, log-scaled)");
   }
 
   g.append("text")
