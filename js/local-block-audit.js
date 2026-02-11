@@ -114,6 +114,7 @@ function auditLocalBlock(points, fromIndex, toIndex) {
     var popupStartTop = 0;
     var headerClicked = false;
 
+    // Position: bottom-right
     popup.style.left = (window.innerWidth - popup.offsetWidth - 24) + 'px';
     popup.style.top = (window.innerHeight - (body.classList.contains('hidden') ? header.offsetHeight : popup.offsetHeight) - 24) + 'px';
 
@@ -127,6 +128,12 @@ function auditLocalBlock(points, fromIndex, toIndex) {
       top = Math.max(0, Math.min(top, vh - h));
       return { left: left, top: top };
     }
+
+    // Bring to front on any interaction
+    popup.addEventListener('mousedown', function () {
+      if (typeof window._floatingToolZIndex !== 'number') { window._floatingToolZIndex = 1000; }
+      popup.style.zIndex = ++window._floatingToolZIndex;
+    });
 
     header.addEventListener('mousedown', function (e) {
       if (e.button !== 0) { return; }
