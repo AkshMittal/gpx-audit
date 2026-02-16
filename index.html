@@ -748,7 +748,13 @@
                 '  unparsable_timestamps: ' + (t ? n(t.unparsableTimestampCount) : 0),
                 '  duplicate_timestamps: ' + (t ? n(t.duplicateTimestampCount) : 0),
                 '  backward_timestamp_jumps: ' + (t ? n(t.backwardTimestampCount) : 0),
-                '  maximum_backward_jump_seconds: ' + (t && t.maxBackwardJumpMs != null ? t.maxBackwardJumpMs / 1000 : 0),
+                '  maximum_backward_jump_seconds: ' + (t && t.maxBackwardJumpMs != null ? (t.maxBackwardJumpMs / 1000).toFixed(2) : 'n/a'),
+                '',
+                '  raw_session_duration_seconds: ' + (t && t.rawSessionDurationSec != null ? t.rawSessionDurationSec.toFixed(2) : 'n/a'),
+                '',
+                '  backtracking_blocks: ' + (t && t.backtrackingBlocks ? t.backtrackingBlocks.length : 0),
+                '  total_backtracking_points: ' + (t ? n(t.totalBacktrackingPoints) : 0),
+                '  largest_backtracking_block_length: ' + (t ? n(t.largestBacktrackingBlockLength) : 0),
                 '',
                 '[sampling audit]',
                 '  consecutive_pairs_inspected: ' + (m ? n(m.consecutivePointPairsConsidered) : 0),
@@ -773,7 +779,16 @@
                 '',
                 '  rejected:',
                 '    missing_timestamp: ' + (m ? n(m.jointRejectedMissingTimestamp) : 0),
-                '    non_positive_dt: ' + (m ? n(m.jointRejectedNonPositiveDt) : 0)
+                '    non_positive_dt: ' + (m ? n(m.jointRejectedNonPositiveDt) : 0),
+                '  invalid_time_ratio: ' + (m && m.invalidTimeRatio != null ? m.invalidTimeRatio.toFixed(4) : 'n/a'),
+                '',
+                '[derived metrics]',
+                '  total_valid_time_seconds: ' + (m && m.totalValidTimeSec != null ? m.totalValidTimeSec.toFixed(2) : 'n/a'),
+                '  total_valid_distance_meters: ' + (m && m.totalValidDistanceM != null ? m.totalValidDistanceM.toFixed(2) : 'n/a'),
+                '',
+                '  mean_speed_m_per_s: ' + (m && m.meanSpeedMs != null ? m.meanSpeedMs.toFixed(4) : 'n/a'),
+                '  median_speed_m_per_s: ' + (m && m.medianSpeedMs != null ? m.medianSpeedMs.toFixed(4) : 'n/a'),
+                '  max_speed_m_per_s: ' + (m && m.maxSpeedMs != null ? m.maxSpeedMs.toFixed(4) : 'n/a')
             ];
             document.getElementById('pipeline-status').textContent = lines.join('\n');
         }
