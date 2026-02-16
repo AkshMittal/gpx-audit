@@ -30,6 +30,14 @@ function initializeAuditMap(points) {
   var recenterBtn = document.getElementById('audit-map-recenter-btn');
   if (!mapDiv || !body || !searchIn || !searchBtn || !recenterBtn) { return; }
 
+  /* ── Expand the map panel before creating the map so Leaflet has real dimensions ── */
+  var wasHidden = body.classList.contains('hidden');
+  if (wasHidden) {
+    body.classList.remove('hidden');
+    /* Force synchronous reflow so the container has computed dimensions */
+    void body.offsetHeight;
+  }
+
   /* ── Destroy previous map instance if one exists ── */
   if (_auditMapInstance) {
     _auditMapInstance.remove();
@@ -161,8 +169,12 @@ function initializeAuditMap(points) {
     if (e.key === 'Enter') { doSearch(); }
   });
 
-  /* If the panel is currently visible, invalidate so tiles render */
-  if (!body.classList.contains('hidden')) {
-    setTimeout(function () { map.invalidateSize(); }, 0);
-  }
+  /* Panel is guaranteed visible at this point; invalidate and re-fit after
+     a tick so Leaflet recalculates tile coverage with final dimensions */
+  setTimeout(function () {
+    map.invalidateSize();
+    if (routeBounds && routeBounds.isValid()) {
+      map.fitBounds(routeBounds);
+    }
+  }, 50);
 }
