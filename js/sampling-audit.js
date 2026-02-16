@@ -46,24 +46,8 @@ function auditSampling(points, gpxFilename) {
   let previousTimestampMs = null;
   let previousTimestampGpxIndex = null;
   let previousPoint = null; // Track previous point with valid coordinates (lat, lon, gpxIndex)
-  let hasValidTimestamps = false; // Descriptive only: any parseable timestamp present
+  let hasValidTimestamps = false; // Descriptive only: any parseable timestamp present (derived from main loop)
   let hasTimeProgression = false; // true iff at least one positive consecutive time delta (dt > 0)
-  
-  // First pass: determine if we have any valid (parseable) timestamps (descriptive only; does not gate collection)
-  for (let i = 0; i < points.length; i++) {
-    const point = points[i];
-    const timeRaw = point.timeRaw;
-    if (timeRaw !== null) {
-      const timestampMs = Date.parse(timeRaw);
-      if (!isNaN(timestampMs)) {
-        hasValidTimestamps = true;
-        break;
-      }
-    }
-  }
-  
-  // console.log('Has valid timestamps (presence):', hasValidTimestamps);
-  // console.log('========================================');
   
   // Time delta audit counters
   let timestampedPointsCount = 0;
@@ -94,19 +78,23 @@ function auditSampling(points, gpxFilename) {
     }
     
     // Geometry-only distance: always compute for every consecutive valid coordinate pair (no timestamp dependency)
+    // Hoisted to outer scope so time-conditioned block can reuse without recomputing haversine
+    let distanceFromPrev = null;
+    let distanceFromPrevValid = false;
     if (previousPoint !== null) {
       consecutivePointPairsConsidered++;
-      const distance = haversineDistance(
+      distanceFromPrev = haversineDistance(
         previousPoint.lat,
         previousPoint.lon,
         point.lat,
         point.lon
       );
-      if (isFinite(distance) && distance >= 0) {
+      distanceFromPrevValid = isFinite(distanceFromPrev) && distanceFromPrev >= 0;
+      if (distanceFromPrevValid) {
         distanceDeltasMGeometryOnly.push({
           fromIndex: previousPoint.gpxIndex,
           toIndex: point.gpxIndex,
-          ddMeters: distance
+          ddMeters: distanceFromPrev
         });
       } else {
         rejectedDistanceInvalidOrZero++;
@@ -115,6 +103,7 @@ function auditSampling(points, gpxFilename) {
     
     // Time delta and time-conditioned distance: only when we have positive progression (dt > 0)
     if (hasValidTimestamp) {
+      hasValidTimestamps = true;
       timestampedPointsCount++;
       
       if (previousTimestampMs !== null) {
@@ -130,21 +119,13 @@ function auditSampling(points, gpxFilename) {
           });
           hasTimeProgression = true;
           
-          // Time-conditioned distance delta for this pair only when dt > 0
-          if (previousPoint !== null) {
-            const distance = haversineDistance(
-              previousPoint.lat,
-              previousPoint.lon,
-              point.lat,
-              point.lon
-            );
-            if (isFinite(distance) && distance >= 0) {
-              distanceDeltasMTimeConditioned.push({
-                fromIndex: previousPoint.gpxIndex,
-                toIndex: point.gpxIndex,
-                ddMeters: distance
-              });
-            }
+          // Time-conditioned distance delta: reuse already-computed haversine from geometry-only block
+          if (previousPoint !== null && distanceFromPrevValid) {
+            distanceDeltasMTimeConditioned.push({
+              fromIndex: previousPoint.gpxIndex,
+              toIndex: point.gpxIndex,
+              ddMeters: distanceFromPrev
+            });
           }
         } else {
           rejectedTimestampPairsDeltaLeqZero++;
@@ -334,6 +315,56 @@ function auditSampling(points, gpxFilename) {
     // console.log('  - Invalid/zero distance:', jointRejectedInvalidOrZeroDistance);
     // console.log('================================');
   }
+  
+  // Derived statistics from valid timeDistancePairs
+  let totalValidTimeSec = null;
+  let totalValidDistanceM = null;
+  let meanSpeedMs = null;   // m/s — total valid distance / total valid time
+  let medianSpeedMs = null; // m/s — median of per-pair speeds
+  let maxSpeedMs = null;    // m/s — maximum per-pair speed
+  let invalidTimeRatio = null; // rejected non-positive dt pairs / total pairs with both timestamps
+  
+  if (timeDistancePairs.length > 0) {
+    totalValidTimeSec = 0;
+    totalValidDistanceM = 0;
+    const pairSpeeds = []; // per-pair speed in m/s
+    
+    for (let i = 0; i < timeDistancePairs.length; i++) {
+      totalValidTimeSec += timeDistancePairs[i].dtSec;
+      totalValidDistanceM += timeDistancePairs[i].ddMeters;
+      pairSpeeds.push(timeDistancePairs[i].ddMeters / timeDistancePairs[i].dtSec);
+    }
+    
+    // Mean speed = total valid distance / total valid time
+    meanSpeedMs = totalValidDistanceM / totalValidTimeSec;
+    
+    // Sort speeds for median and max
+    pairSpeeds.sort((a, b) => a - b);
+    
+    // Max speed
+    maxSpeedMs = pairSpeeds[pairSpeeds.length - 1];
+    
+    // Median speed
+    const mid = Math.floor(pairSpeeds.length / 2);
+    if (pairSpeeds.length % 2 === 0) {
+      medianSpeedMs = (pairSpeeds[mid - 1] + pairSpeeds[mid]) / 2;
+    } else {
+      medianSpeedMs = pairSpeeds[mid];
+    }
+  }
+  
+  // Invalid time ratio: rejected non-positive dt pairs / total pairs with both timestamps
+  if (jointPairsWithBothTimestamps > 0) {
+    invalidTimeRatio = jointRejectedNonPositiveDt / jointPairsWithBothTimestamps;
+  }
+  
+  // Attach derived statistics to result
+  result.totalValidTimeSec = totalValidTimeSec;
+  result.totalValidDistanceM = totalValidDistanceM;
+  result.meanSpeedMs = meanSpeedMs;
+  result.medianSpeedMs = medianSpeedMs;
+  result.maxSpeedMs = maxSpeedMs;
+  result.invalidTimeRatio = invalidTimeRatio;
   
   // Expose counters for pipeline status display (same values used for console logging)
   result.rejectedTimestampPairsDeltaLeqZero = rejectedTimestampPairsDeltaLeqZero;
