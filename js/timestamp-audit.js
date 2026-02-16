@@ -6,6 +6,7 @@
 
 /**
  * Audits timestamps in an array of points
+ * Uses anchor-based monotonic detection for backtracking blocks
  * @param {Array} points - Array of point objects with timeRaw property
  * @returns {Object} Audit metadata object with counters
  */
@@ -22,6 +23,21 @@ function auditTimestamps(points) {
   // Collect flagged events
   const backwardTimestampEvents = [];
   const duplicateTimestampEvents = [];
+  
+  // Anchor-based backtracking detection
+  let anchorTimestampMs = null; // Monotonic high-water mark; only advances on forward movement
+  const backtrackingBlocks = [];
+  let totalBacktrackingPoints = 0;
+  
+  // Current backtracking block state
+  let inBlock = false;
+  let currentBlockStartIndex = null;
+  let currentBlockEndIndex = null;
+  let currentBlockLength = 0;
+  let currentBlockMaxDepthMs = 0;
+  
+  // Raw session duration tracking
+  let firstValidTimestampMs = null;
   
   let lastValidTimestampMs = null;
   let lastValidTimestampIndex = null;
@@ -58,10 +74,15 @@ function auditTimestamps(points) {
       continue; // Skip comparison for unparsable timestamps
     }
     
+    // Track first valid timestamp (set once)
+    if (firstValidTimestampMs === null) {
+      firstValidTimestampMs = timestampMs;
+    }
+    
     // At this point, we have a valid parsed timestamp
     // Compare with last valid timestamp (if exists)
     if (lastValidTimestampMs !== null) {
-      // Check for duplicate timestamp (equal to last)
+      // Check for duplicate timestamp (equal to previous valid)
       if (timestampMs === lastValidTimestampMs) {
         duplicateTimestampCount++;
         duplicateTimestampEvents.push({
@@ -70,16 +91,58 @@ function auditTimestamps(points) {
           time: formatTime(timeRaw)
         });
       }
-      // Check for backward timestamp (less than last)
-      else if (timestampMs < lastValidTimestampMs) {
-        backwardTimestampCount++;
-        const backwardJump = lastValidTimestampMs - timestampMs;
+      // Forward: timestamp at or above anchor
+      else if (timestampMs >= anchorTimestampMs) {
+        strictlyIncreasingCount++;
         
-        // Track maximum backward jump
-        if (maxBackwardJumpMs === null || backwardJump > maxBackwardJumpMs) {
-          maxBackwardJumpMs = backwardJump;
+        // Close open backtracking block if any
+        if (inBlock) {
+          backtrackingBlocks.push({
+            startIndex: currentBlockStartIndex,
+            endIndex: currentBlockEndIndex,
+            length: currentBlockLength,
+            maxDepthMs: currentBlockMaxDepthMs
+          });
+          inBlock = false;
+          currentBlockStartIndex = null;
+          currentBlockEndIndex = null;
+          currentBlockLength = 0;
+          currentBlockMaxDepthMs = 0;
         }
         
+        // Update anchor to new high-water mark
+        anchorTimestampMs = timestampMs;
+      }
+      // Backtracking: timestamp below anchor
+      else {
+        backwardTimestampCount++;
+        totalBacktrackingPoints++;
+        
+        const depth = anchorTimestampMs - timestampMs;
+        
+        // Update maxBackwardJumpMs (global max across all blocks)
+        if (maxBackwardJumpMs === null || depth > maxBackwardJumpMs) {
+          maxBackwardJumpMs = depth;
+        }
+        
+        // Track backtracking block
+        if (!inBlock) {
+          // Start new block
+          inBlock = true;
+          currentBlockStartIndex = i;
+          currentBlockEndIndex = i;
+          currentBlockLength = 1;
+          currentBlockMaxDepthMs = depth;
+        } else {
+          // Continue existing block
+          currentBlockEndIndex = i;
+          currentBlockLength++;
+          if (depth > currentBlockMaxDepthMs) {
+            currentBlockMaxDepthMs = depth;
+          }
+        }
+        
+        // Log backward event
         backwardTimestampEvents.push({
           index: i,
           prevIndex: lastValidTimestampIndex,
@@ -87,16 +150,39 @@ function auditTimestamps(points) {
           currTime: formatTime(timeRaw)
         });
       }
-      // Check for strictly increasing timestamp (greater than last - correct order)
-      else if (timestampMs > lastValidTimestampMs) {
-        strictlyIncreasingCount++;
-      }
+    } else {
+      // First valid timestamp: initialize anchor
+      anchorTimestampMs = timestampMs;
     }
     
     // Update last valid timestamp for next comparison
     lastValidTimestampMs = timestampMs;
     lastValidTimestampIndex = i;
     lastValidTimestampRaw = timeRaw;
+  }
+  
+  // Close any open backtracking block at end of file
+  if (inBlock) {
+    backtrackingBlocks.push({
+      startIndex: currentBlockStartIndex,
+      endIndex: currentBlockEndIndex,
+      length: currentBlockLength,
+      maxDepthMs: currentBlockMaxDepthMs
+    });
+  }
+  
+  // Compute largest backtracking block length
+  let largestBacktrackingBlockLength = 0;
+  for (let b = 0; b < backtrackingBlocks.length; b++) {
+    if (backtrackingBlocks[b].length > largestBacktrackingBlockLength) {
+      largestBacktrackingBlockLength = backtrackingBlocks[b].length;
+    }
+  }
+  
+  // Raw session duration: last valid timestamp - first valid timestamp (in original point order)
+  let rawSessionDurationSec = null;
+  if (firstValidTimestampMs !== null && lastValidTimestampMs !== null && lastValidTimestampMs !== firstValidTimestampMs) {
+    rawSessionDurationSec = (lastValidTimestampMs - firstValidTimestampMs) / 1000;
   }
   
   // Build audit metadata object
@@ -109,7 +195,11 @@ function auditTimestamps(points) {
     strictlyIncreasingCount: strictlyIncreasingCount,
     maxBackwardJumpMs: maxBackwardJumpMs,
     backwardTimestampEvents: backwardTimestampEvents,
-    duplicateTimestampEvents: duplicateTimestampEvents
+    duplicateTimestampEvents: duplicateTimestampEvents,
+    rawSessionDurationSec: rawSessionDurationSec,
+    backtrackingBlocks: backtrackingBlocks,
+    totalBacktrackingPoints: totalBacktrackingPoints,
+    largestBacktrackingBlockLength: largestBacktrackingBlockLength
   };
   
   // Console log the audit results
