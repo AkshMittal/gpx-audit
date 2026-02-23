@@ -16,12 +16,11 @@ function auditTimestamps(points) {
   let missingTimestampCount = 0;
   let unparsableTimestampCount = 0;
   let duplicateTimestampCount = 0;
-  let backwardTimestampCount = 0;
   let strictlyIncreasingCount = 0; // Points in increasing order
-  let maxBackwardJumpMs = null; // null if no backward jumps observed
+  let maxBacktrackingDepthMs = null; // null if no backtracking observed
   
   // Collect flagged events
-  const backwardTimestampEvents = [];
+  const backtrackingPointEvents = [];
   const duplicateTimestampEvents = [];
   
   // Anchor-based backtracking detection
@@ -35,6 +34,13 @@ function auditTimestamps(points) {
   let currentBlockEndIndex = null;
   let currentBlockLength = 0;
   let currentBlockMaxDepthMs = 0;
+  
+  // Contiguous missing timestamp block detection
+  const missingTimestampBlocks = [];
+  let inMissingBlock = false;
+  let currentMissingBlockStartIndex = null;
+  let currentMissingBlockEndIndex = null;
+  let currentMissingBlockLength = 0;
   
   // Raw session duration tracking
   let firstValidTimestampMs = null;
@@ -62,7 +68,31 @@ function auditTimestamps(points) {
     // Check for missing timestamp
     if (timeRaw === null) {
       missingTimestampCount++;
+      if (!inMissingBlock) {
+        inMissingBlock = true;
+        currentMissingBlockStartIndex = i;
+        currentMissingBlockEndIndex = i;
+        currentMissingBlockLength = 1;
+      } else {
+        currentMissingBlockEndIndex = i;
+        currentMissingBlockLength++;
+      }
       continue; // Skip comparison for missing timestamps
+    }
+    
+    // Close open missing-timestamp block (only keep blocks with length > 1)
+    if (inMissingBlock) {
+      if (currentMissingBlockLength > 1) {
+        missingTimestampBlocks.push({
+          startIndex: currentMissingBlockStartIndex,
+          endIndex: currentMissingBlockEndIndex,
+          length: currentMissingBlockLength
+        });
+      }
+      inMissingBlock = false;
+      currentMissingBlockStartIndex = null;
+      currentMissingBlockEndIndex = null;
+      currentMissingBlockLength = 0;
     }
     
     // Attempt to parse timestamp
@@ -95,14 +125,16 @@ function auditTimestamps(points) {
       else if (timestampMs >= anchorTimestampMs) {
         strictlyIncreasingCount++;
         
-        // Close open backtracking block if any
+        // Close open backtracking block if any (only keep blocks with length > 1)
         if (inBlock) {
-          backtrackingBlocks.push({
-            startIndex: currentBlockStartIndex,
-            endIndex: currentBlockEndIndex,
-            length: currentBlockLength,
-            maxDepthMs: currentBlockMaxDepthMs
-          });
+          if (currentBlockLength > 1) {
+            backtrackingBlocks.push({
+              startIndex: currentBlockStartIndex,
+              endIndex: currentBlockEndIndex,
+              length: currentBlockLength,
+              maxDepthMs: currentBlockMaxDepthMs
+            });
+          }
           inBlock = false;
           currentBlockStartIndex = null;
           currentBlockEndIndex = null;
@@ -115,14 +147,13 @@ function auditTimestamps(points) {
       }
       // Backtracking: timestamp below anchor
       else {
-        backwardTimestampCount++;
         totalBacktrackingPoints++;
         
         const depth = anchorTimestampMs - timestampMs;
         
-        // Update maxBackwardJumpMs (global max across all blocks)
-        if (maxBackwardJumpMs === null || depth > maxBackwardJumpMs) {
-          maxBackwardJumpMs = depth;
+        // Update maxBacktrackingDepthMs (global max across all blocks)
+        if (maxBacktrackingDepthMs === null || depth > maxBacktrackingDepthMs) {
+          maxBacktrackingDepthMs = depth;
         }
         
         // Track backtracking block
@@ -142,8 +173,8 @@ function auditTimestamps(points) {
           }
         }
         
-        // Log backward event
-        backwardTimestampEvents.push({
+        // Log backtracking event
+        backtrackingPointEvents.push({
           index: i,
           prevIndex: lastValidTimestampIndex,
           prevTime: formatTime(lastValidTimestampRaw),
@@ -161,8 +192,25 @@ function auditTimestamps(points) {
     lastValidTimestampRaw = timeRaw;
   }
   
-  // Close any open backtracking block at end of file
-  if (inBlock) {
+  // Close any open missing-timestamp block at end of file (only keep blocks with length > 1)
+  if (inMissingBlock && currentMissingBlockLength > 1) {
+    missingTimestampBlocks.push({
+      startIndex: currentMissingBlockStartIndex,
+      endIndex: currentMissingBlockEndIndex,
+      length: currentMissingBlockLength
+    });
+  }
+  
+  // Compute largest missing-timestamp block length
+  let largestMissingTimestampBlockLength = 0;
+  for (let mb = 0; mb < missingTimestampBlocks.length; mb++) {
+    if (missingTimestampBlocks[mb].length > largestMissingTimestampBlockLength) {
+      largestMissingTimestampBlockLength = missingTimestampBlocks[mb].length;
+    }
+  }
+  
+  // Close any open backtracking block at end of file (only keep blocks with length > 1)
+  if (inBlock && currentBlockLength > 1) {
     backtrackingBlocks.push({
       startIndex: currentBlockStartIndex,
       endIndex: currentBlockEndIndex,
@@ -191,16 +239,42 @@ function auditTimestamps(points) {
     missingTimestampCount: missingTimestampCount,
     unparsableTimestampCount: unparsableTimestampCount,
     duplicateTimestampCount: duplicateTimestampCount,
-    backwardTimestampCount: backwardTimestampCount,
     strictlyIncreasingCount: strictlyIncreasingCount,
-    maxBackwardJumpMs: maxBackwardJumpMs,
-    backwardTimestampEvents: backwardTimestampEvents,
+    maxBacktrackingDepthMs: maxBacktrackingDepthMs,
+    backtrackingPointEvents: backtrackingPointEvents,
     duplicateTimestampEvents: duplicateTimestampEvents,
     rawSessionDurationSec: rawSessionDurationSec,
     backtrackingBlocks: backtrackingBlocks,
     totalBacktrackingPoints: totalBacktrackingPoints,
-    largestBacktrackingBlockLength: largestBacktrackingBlockLength
+    largestBacktrackingBlockLength: largestBacktrackingBlockLength,
+    missingTimestampBlocks: missingTimestampBlocks,
+    largestMissingTimestampBlockLength: largestMissingTimestampBlockLength,
+    missingTimestampRatio: totalPointsChecked > 0 ? missingTimestampCount / totalPointsChecked : 0
   };
+  
+  // TEMPORARY: Backtracking block detection verification
+  console.log('=== Backtracking Block Detection ===');
+  console.log('totalBacktrackingPoints:', totalBacktrackingPoints);
+  console.log('maxBacktrackingDepthMs:', maxBacktrackingDepthMs);
+  console.log('backtrackingBlocks:', backtrackingBlocks.length);
+  for (let bbl = 0; bbl < backtrackingBlocks.length; bbl++) {
+    const bblk = backtrackingBlocks[bbl];
+    console.log('  block ' + bbl + ': startIndex=' + bblk.startIndex + ', endIndex=' + bblk.endIndex + ', length=' + bblk.length + ', maxDepthMs=' + bblk.maxDepthMs);
+  }
+  console.log('largestBacktrackingBlockLength:', largestBacktrackingBlockLength);
+  console.log('=====================================');
+  
+  // TEMPORARY: Missing timestamp block detection verification
+  console.log('=== Missing Timestamp Block Detection ===');
+  console.log('missingTimestampCount:', missingTimestampCount);
+  console.log('missingTimestampRatio:', totalPointsChecked > 0 ? (missingTimestampCount / totalPointsChecked).toFixed(4) : 0);
+  console.log('missingTimestampBlocks (length > 1):', missingTimestampBlocks.length);
+  for (let mbl = 0; mbl < missingTimestampBlocks.length; mbl++) {
+    const blk = missingTimestampBlocks[mbl];
+    console.log('  block ' + mbl + ': startIndex=' + blk.startIndex + ', endIndex=' + blk.endIndex + ', length=' + blk.length);
+  }
+  console.log('largestMissingTimestampBlockLength:', largestMissingTimestampBlockLength);
+  console.log('=========================================');
   
   // Console log the audit results
   // console.log('=== Timestamp Audit Results ===');
@@ -208,13 +282,13 @@ function auditTimestamps(points) {
   // console.log('Missing timestamps:', missingTimestampCount);
   // console.log('Unparsable timestamps:', unparsableTimestampCount);
   // console.log('Duplicate timestamps:', duplicateTimestampCount);
-  // console.log('Backward timestamps:', backwardTimestampCount);
+  // console.log('Backtracking points:', totalBacktrackingPoints);
   // console.log('Strictly increasing timestamps:', strictlyIncreasingCount);
-  // if (maxBackwardJumpMs !== null) {
-  //   console.log('Maximum backward jump (ms):', maxBackwardJumpMs);
-  //   console.log('Maximum backward jump (seconds):', Math.round(maxBackwardJumpMs / 1000));
+  // if (maxBacktrackingDepthMs !== null) {
+  //   console.log('Maximum backtracking depth (ms):', maxBacktrackingDepthMs);
+  //   console.log('Maximum backtracking depth (seconds):', Math.round(maxBacktrackingDepthMs / 1000));
   // } else {
-  //   console.log('Maximum backward jump (ms):', 'N/A (no backward jumps observed)');
+  //   console.log('Maximum backtracking depth (ms):', 'N/A (no backtracking observed)');
   // }
   // console.log('================================');
   
