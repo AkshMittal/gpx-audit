@@ -747,8 +747,9 @@
                 '  missing_timestamps: ' + (t ? n(t.missingTimestampCount) : 0),
                 '  unparsable_timestamps: ' + (t ? n(t.unparsableTimestampCount) : 0),
                 '  duplicate_timestamps: ' + (t ? n(t.duplicateTimestampCount) : 0),
-                '  backward_timestamp_jumps: ' + (t ? n(t.backwardTimestampCount) : 0),
-                '  maximum_backward_jump_seconds: ' + (t && t.maxBackwardJumpMs != null ? (t.maxBackwardJumpMs / 1000).toFixed(2) : 'n/a'),
+
+                '  backtracking_points: ' + (t ? n(t.totalBacktrackingPoints) : 0),
+                '  max_backtracking_depth_seconds: ' + (t && t.maxBacktrackingDepthMs != null ? (t.maxBacktrackingDepthMs / 1000).toFixed(2) : 'n/a'),
                 '',
                 '  raw_session_duration_seconds: ' + (t && t.rawSessionDurationSec != null ? t.rawSessionDurationSec.toFixed(2) : 'n/a'),
                 '',
@@ -808,12 +809,12 @@
             
             // Collect all flagged event types
             const hasRejectedCoords = s && s.rejectedCoordinates && s.rejectedCoordinates.length > 0;
-            const hasBackwardTimestamps = t && t.backwardTimestampEvents && t.backwardTimestampEvents.length > 0;
+            const hasBacktrackingPoints = t && t.backtrackingPointEvents && t.backtrackingPointEvents.length > 0;
             const hasDuplicateTimestamps = t && t.duplicateTimestampEvents && t.duplicateTimestampEvents.length > 0;
             const hasNonPositiveDeltas = m && m.nonPositiveTimeDeltaEvents && m.nonPositiveTimeDeltaEvents.length > 0;
             
             // If no flagged events, show message
-            if (!hasRejectedCoords && !hasBackwardTimestamps && !hasDuplicateTimestamps && !hasNonPositiveDeltas) {
+            if (!hasRejectedCoords && !hasBacktrackingPoints && !hasDuplicateTimestamps && !hasNonPositiveDeltas) {
                 const message = document.createElement('div');
                 message.className = 'flagged-event-item';
                 message.textContent = 'no flagged events';
@@ -838,11 +839,11 @@
             }
             
             // Backward timestamp transitions
-            if (hasBackwardTimestamps) {
+            if (hasBacktrackingPoints) {
                 const dropdown = createFlaggedDropdown(
-                    'backward timestamp transitions',
-                    t.backwardTimestampEvents.length,
-                    t.backwardTimestampEvents.map(e => `index ${e.prevIndex} → ${e.index} : ${e.prevTime} → ${e.currTime}`)
+                    'backtracking point transitions',
+                    t.backtrackingPointEvents.length,
+                    t.backtrackingPointEvents.map(e => `index ${e.prevIndex} → ${e.index} : ${e.prevTime} → ${e.currTime}`)
                 );
                 container.appendChild(dropdown);
             }
