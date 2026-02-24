@@ -35,6 +35,13 @@ function auditTimestamps(points) {
   let currentBlockLength = 0;
   let currentBlockMaxDepthMs = 0;
   
+  // Contiguous duplicate timestamp block detection
+  const duplicateTimestampBlocks = [];
+  let inDuplicateBlock = false;
+  let currentDuplicateBlockStartIndex = null;
+  let currentDuplicateBlockEndIndex = null;
+  let currentDuplicateBlockLength = 0;
+  
   // Contiguous missing timestamp block detection
   const missingTimestampBlocks = [];
   let inMissingBlock = false;
@@ -120,10 +127,35 @@ function auditTimestamps(points) {
           prevIndex: lastValidTimestampIndex,
           time: formatTime(timeRaw)
         });
+        // Track duplicate timestamp block
+        if (!inDuplicateBlock) {
+          inDuplicateBlock = true;
+          currentDuplicateBlockStartIndex = i;
+          currentDuplicateBlockEndIndex = i;
+          currentDuplicateBlockLength = 1;
+        } else {
+          currentDuplicateBlockEndIndex = i;
+          currentDuplicateBlockLength++;
+        }
       }
       // Forward: timestamp at or above anchor
       else if (timestampMs >= anchorTimestampMs) {
         strictlyIncreasingCount++;
+        
+        // Close open duplicate timestamp block if any (only keep blocks with length > 1)
+        if (inDuplicateBlock) {
+          if (currentDuplicateBlockLength > 1) {
+            duplicateTimestampBlocks.push({
+              startIndex: currentDuplicateBlockStartIndex,
+              endIndex: currentDuplicateBlockEndIndex,
+              length: currentDuplicateBlockLength
+            });
+          }
+          inDuplicateBlock = false;
+          currentDuplicateBlockStartIndex = null;
+          currentDuplicateBlockEndIndex = null;
+          currentDuplicateBlockLength = 0;
+        }
         
         // Close open backtracking block if any (only keep blocks with length > 1)
         if (inBlock) {
@@ -147,6 +179,21 @@ function auditTimestamps(points) {
       }
       // Backtracking: timestamp below anchor
       else {
+        // Close open duplicate timestamp block if any (only keep blocks with length > 1)
+        if (inDuplicateBlock) {
+          if (currentDuplicateBlockLength > 1) {
+            duplicateTimestampBlocks.push({
+              startIndex: currentDuplicateBlockStartIndex,
+              endIndex: currentDuplicateBlockEndIndex,
+              length: currentDuplicateBlockLength
+            });
+          }
+          inDuplicateBlock = false;
+          currentDuplicateBlockStartIndex = null;
+          currentDuplicateBlockEndIndex = null;
+          currentDuplicateBlockLength = 0;
+        }
+        
         totalBacktrackingPoints++;
         
         const depth = anchorTimestampMs - timestampMs;
@@ -190,6 +237,23 @@ function auditTimestamps(points) {
     lastValidTimestampMs = timestampMs;
     lastValidTimestampIndex = i;
     lastValidTimestampRaw = timeRaw;
+  }
+  
+  // Close any open duplicate timestamp block at end of file (only keep blocks with length > 1)
+  if (inDuplicateBlock && currentDuplicateBlockLength > 1) {
+    duplicateTimestampBlocks.push({
+      startIndex: currentDuplicateBlockStartIndex,
+      endIndex: currentDuplicateBlockEndIndex,
+      length: currentDuplicateBlockLength
+    });
+  }
+  
+  // Compute largest duplicate timestamp block length
+  let largestDuplicateTimestampBlockLength = 0;
+  for (let db = 0; db < duplicateTimestampBlocks.length; db++) {
+    if (duplicateTimestampBlocks[db].length > largestDuplicateTimestampBlockLength) {
+      largestDuplicateTimestampBlockLength = duplicateTimestampBlocks[db].length;
+    }
   }
   
   // Close any open missing-timestamp block at end of file (only keep blocks with length > 1)
@@ -247,34 +311,49 @@ function auditTimestamps(points) {
     backtrackingBlocks: backtrackingBlocks,
     totalBacktrackingPoints: totalBacktrackingPoints,
     largestBacktrackingBlockLength: largestBacktrackingBlockLength,
+    duplicateTimestampBlocks: duplicateTimestampBlocks,
+    largestDuplicateTimestampBlockLength: largestDuplicateTimestampBlockLength,
+    duplicateTimestampRatio: totalPointsChecked > 0 ? duplicateTimestampCount / totalPointsChecked : 0,
     missingTimestampBlocks: missingTimestampBlocks,
     largestMissingTimestampBlockLength: largestMissingTimestampBlockLength,
     missingTimestampRatio: totalPointsChecked > 0 ? missingTimestampCount / totalPointsChecked : 0
   };
   
-  // TEMPORARY: Backtracking block detection verification
-  console.log('=== Backtracking Block Detection ===');
-  console.log('totalBacktrackingPoints:', totalBacktrackingPoints);
-  console.log('maxBacktrackingDepthMs:', maxBacktrackingDepthMs);
-  console.log('backtrackingBlocks:', backtrackingBlocks.length);
-  for (let bbl = 0; bbl < backtrackingBlocks.length; bbl++) {
-    const bblk = backtrackingBlocks[bbl];
-    console.log('  block ' + bbl + ': startIndex=' + bblk.startIndex + ', endIndex=' + bblk.endIndex + ', length=' + bblk.length + ', maxDepthMs=' + bblk.maxDepthMs);
-  }
-  console.log('largestBacktrackingBlockLength:', largestBacktrackingBlockLength);
-  console.log('=====================================');
-  
-  // TEMPORARY: Missing timestamp block detection verification
-  console.log('=== Missing Timestamp Block Detection ===');
-  console.log('missingTimestampCount:', missingTimestampCount);
-  console.log('missingTimestampRatio:', totalPointsChecked > 0 ? (missingTimestampCount / totalPointsChecked).toFixed(4) : 0);
-  console.log('missingTimestampBlocks (length > 1):', missingTimestampBlocks.length);
-  for (let mbl = 0; mbl < missingTimestampBlocks.length; mbl++) {
-    const blk = missingTimestampBlocks[mbl];
-    console.log('  block ' + mbl + ': startIndex=' + blk.startIndex + ', endIndex=' + blk.endIndex + ', length=' + blk.length);
-  }
-  console.log('largestMissingTimestampBlockLength:', largestMissingTimestampBlockLength);
-  console.log('=========================================');
+  // // TEMPORARY: Backtracking block detection verification
+  // console.log('=== Backtracking Block Detection ===');
+  // console.log('totalBacktrackingPoints:', totalBacktrackingPoints);
+  // console.log('maxBacktrackingDepthMs:', maxBacktrackingDepthMs);
+  // console.log('backtrackingBlocks:', backtrackingBlocks.length);
+  // for (let bbl = 0; bbl < backtrackingBlocks.length; bbl++) {
+  //   const bblk = backtrackingBlocks[bbl];
+  //   console.log('  block ' + bbl + ': startIndex=' + bblk.startIndex + ', endIndex=' + bblk.endIndex + ', length=' + bblk.length + ', maxDepthMs=' + bblk.maxDepthMs);
+  // }
+  // console.log('largestBacktrackingBlockLength:', largestBacktrackingBlockLength);
+  // console.log('=====================================');
+  //
+  // // TEMPORARY: Duplicate timestamp block detection verification
+  // console.log('=== Duplicate Timestamp Block Detection ===');
+  // console.log('duplicateTimestampCount:', duplicateTimestampCount);
+  // console.log('duplicateTimestampRatio:', totalPointsChecked > 0 ? (duplicateTimestampCount / totalPointsChecked).toFixed(4) : 0);
+  // console.log('duplicateTimestampBlocks (length > 1):', duplicateTimestampBlocks.length);
+  // for (let dbl = 0; dbl < duplicateTimestampBlocks.length; dbl++) {
+  //   const dblk = duplicateTimestampBlocks[dbl];
+  //   console.log('  block ' + dbl + ': startIndex=' + dblk.startIndex + ', endIndex=' + dblk.endIndex + ', length=' + dblk.length);
+  // }
+  // console.log('largestDuplicateTimestampBlockLength:', largestDuplicateTimestampBlockLength);
+  // console.log('============================================');
+  //
+  // // TEMPORARY: Missing timestamp block detection verification
+  // console.log('=== Missing Timestamp Block Detection ===');
+  // console.log('missingTimestampCount:', missingTimestampCount);
+  // console.log('missingTimestampRatio:', totalPointsChecked > 0 ? (missingTimestampCount / totalPointsChecked).toFixed(4) : 0);
+  // console.log('missingTimestampBlocks (length > 1):', missingTimestampBlocks.length);
+  // for (let mbl = 0; mbl < missingTimestampBlocks.length; mbl++) {
+  //   const blk = missingTimestampBlocks[mbl];
+  //   console.log('  block ' + mbl + ': startIndex=' + blk.startIndex + ', endIndex=' + blk.endIndex + ', length=' + blk.length);
+  // }
+  // console.log('largestMissingTimestampBlockLength:', largestMissingTimestampBlockLength);
+  // console.log('=========================================');
   
   // Console log the audit results
   // console.log('=== Timestamp Audit Results ===');
