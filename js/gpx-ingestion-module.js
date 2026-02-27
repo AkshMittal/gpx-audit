@@ -112,12 +112,17 @@ function parseGPX(gpxString) {
   let pointsDiscarded = 0;
   let firstRejectionLogged = false;
   const rejectedCoordinates = [];
+  const pointTypeCounts = { wpt: 0, rtept: 0, trkpt: 0 };
+  let hasAnyTimestamps = false;
   
   // Helper: increment gpxIndex for every GPX point encountered (accepted or rejected)
   const processPoint = (pointElement, pointType) => {
     const result = parsePointElement(pointElement, gpxIndex++, pointType);
     if (result.valid) {
       points.push(result.point);
+      if (result.point.timeRaw !== null) {
+        hasAnyTimestamps = true;
+      }
     } else {
       pointsDiscarded++;
       // Log the first rejected point
@@ -129,6 +134,11 @@ function parseGPX(gpxString) {
       // Collect all rejected coordinates for flagged events
       rejectedCoordinates.push({
         gpxIndex: result.rawData.gpxIndex,
+        pointType: result.rawData.pointType,
+        rawLat: result.rawData.lat,
+        rawLon: result.rawData.lon,
+        rawEle: result.rawData.ele,
+        rawTime: result.rawData.time,
         reason: result.rejectionReason
       });
     }
@@ -136,6 +146,7 @@ function parseGPX(gpxString) {
   
   // Extract all <wpt> elements (waypoints) - standalone points
   const waypoints = xmlDoc.querySelectorAll('wpt');
+  pointTypeCounts.wpt = waypoints.length;
   totalPointsFound += waypoints.length;
   waypoints.forEach((wpt) => {
     processPoint(wpt, 'wpt');
@@ -143,6 +154,7 @@ function parseGPX(gpxString) {
   
   // Extract all <rtept> elements (route points) - points within routes
   const routePoints = xmlDoc.querySelectorAll('rtept');
+  pointTypeCounts.rtept = routePoints.length;
   totalPointsFound += routePoints.length;
   routePoints.forEach((rtept) => {
     processPoint(rtept, 'rtept');
@@ -150,19 +162,37 @@ function parseGPX(gpxString) {
   
   // Extract all <trkpt> elements (track points) - points within tracks
   const trackPoints = xmlDoc.querySelectorAll('trkpt');
+  pointTypeCounts.trkpt = trackPoints.length;
   totalPointsFound += trackPoints.length;
   trackPoints.forEach((trkpt) => {
     processPoint(trkpt, 'trkpt');
   });
   
+  const hasMultiplePointTypes =
+    (pointTypeCounts.wpt > 0 ? 1 : 0) +
+    (pointTypeCounts.rtept > 0 ? 1 : 0) +
+    (pointTypeCounts.trkpt > 0 ? 1 : 0) > 1;
+  
   // Return object with points array and statistics
   return {
     points: points,
-    stats: {
-      totalPointsFound: totalPointsFound,
-      pointsDiscarded: pointsDiscarded,
-      remainingPoints: points.length,
-      rejectedCoordinates: rejectedCoordinates
+    audit: {
+      ingestion: {
+        counts: {
+          totalPointCount: totalPointsFound,
+          validPointCount: points.length,
+          rejectedPointCount: pointsDiscarded,
+          pointTypeCounts: pointTypeCounts
+        },
+        context: {
+          hasMultiplePointTypes: hasMultiplePointTypes,
+          hasAnyTimestamps: hasAnyTimestamps
+        },
+        rejections: {
+          count: pointsDiscarded,
+          events: rejectedCoordinates
+        }
+      }
     }
   };
 }

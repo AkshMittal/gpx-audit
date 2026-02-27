@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Audit - Visualization Notes</title>
+    <style>
+        body {
+            font-family: "Courier New", Courier, monospace;
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 24px;
+            background: #000;
+            color: #fff;
+            line-height: 1.55;
+        }
+        h1, h2 {
+            font-weight: normal;
+            margin: 0 0 14px 0;
+        }
+        h2 {
+            margin-top: 22px;
+            font-size: 20px;
+        }
+        p, li {
+            color: #cfcfcf;
+        }
+        ul {
+            padding-left: 20px;
+            margin-top: 8px;
+        }
+        .muted {
+            color: #9a9a9a;
+            font-size: 13px;
+        }
+        a {
+            color: #bdbdbd;
+            text-decoration: none;
+            border-bottom: 1px solid #444;
+        }
+        a:hover {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+        code {
+            color: #fff;
+        }
+        .top-links {
+            margin-bottom: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-links">
+        <a href="index.html">back to workbench</a>
+    </div>
+
+    <h1>Design and Visualization Notes</h1>
+    <p class="muted">Why these graphs exist and why they were chosen. This page explains design intent, not interpretation rules.</p>
+
+    <h2>Why KDE Instead of Histograms</h2>
+    <p>Histogram bins impose hard boundaries that can distort GPX sampling structure. KDE gives a continuous density estimate where each observation contributes smoothly to nearby regions.</p>
+    <ul>
+        <li>continuous distribution shape (no bin-edge jumps)</li>
+        <li>local influence from each point</li>
+        <li>better visibility of mixed sampling regimes</li>
+    </ul>
+
+    <h2>Why Gaussian Kernels and Log-Scaled Axes</h2>
+    <p>Time and distance deltas are positive and usually span multiple orders of magnitude. Linear spacing compresses dense near-origin structure and over-emphasizes long-tail outliers.</p>
+    <ul>
+        <li>KDE is computed in log space for better near-origin resolution</li>
+        <li>tails remain visible without clipping</li>
+        <li>values are still shown in linear units; only axis spacing is logarithmic</li>
+    </ul>
+
+    <h2>Why Bandwidth Is User-Controlled</h2>
+    <p>There is no single correct smoothing level for raw GPX streams. Different analysis goals require different bandwidths.</p>
+    <ul>
+        <li>higher bandwidth for broad regime trends</li>
+        <li>lower bandwidth for sharp fixed-interval peaks</li>
+        <li>manual control keeps the smoothing tradeoff explicit</li>
+    </ul>
+
+    <h2>Why These Plot Types</h2>
+    <p>Each view answers a distinct question.</p>
+    <ul>
+        <li><code>Time/Distance KDE</code>: dominant scales and multimodality</li>
+        <li><code>Rug support</code>: where observations exist along the axis</li>
+        <li><code>Time-Distance scatter</code>: joint behavior and isolated outliers</li>
+        <li><code>Sequence-aware scatter</code>: local continuity by GPX index</li>
+    </ul>
+
+    <h2>Why Sequence-Aware Scatter Exists</h2>
+    <p>Global scatter treats points as exchangeable and hides local temporal structure. Sequence-aware plotting preserves order and makes local behavior legible.</p>
+    <ul>
+        <li>distinguishes true pauses from sparse logging gaps</li>
+        <li>shows stationary logging under fixed cadence</li>
+        <li>exposes time-local transitions in recording behavior</li>
+    </ul>
+
+    <h2>What These Plots Do Not Do</h2>
+    <ul>
+        <li>do not prove GPX correctness</li>
+        <li>do not score activity quality</li>
+        <li>do not classify behavior categories</li>
+        <li>do not infer causality</li>
+    </ul>
+    <p>The visualization layer is observation-first: it surfaces structure and leaves interpretation to downstream analysis.</p>
+</body>
+</html>

@@ -20,6 +20,7 @@ function auditTimestamps(points) {
   let maxBacktrackingDepthMs = null; // null if no backtracking observed
   
   // Collect flagged events
+  const missingTimestampEvents = [];
   const backtrackingPointEvents = [];
   const duplicateTimestampEvents = [];
   
@@ -41,6 +42,7 @@ function auditTimestamps(points) {
   let currentDuplicateBlockStartIndex = null;
   let currentDuplicateBlockEndIndex = null;
   let currentDuplicateBlockLength = 0;
+  let currentDuplicateBlockTime = null;
   
   // Contiguous missing timestamp block detection
   const missingTimestampBlocks = [];
@@ -49,11 +51,19 @@ function auditTimestamps(points) {
   let currentMissingBlockEndIndex = null;
   let currentMissingBlockLength = 0;
   
+  // Contiguous unparsable timestamp block detection
+  const unparsableTimestampBlocks = [];
+  const unparsableTimestampEvents = [];
+  let inUnparsableBlock = false;
+  let currentUnparsableBlockStartIndex = null;
+  let currentUnparsableBlockEndIndex = null;
+  let currentUnparsableBlockLength = 0;
+  
   // Raw session duration tracking
   let firstValidTimestampMs = null;
   
   let lastValidTimestampMs = null;
-  let lastValidTimestampIndex = null;
+  let lastValidTimestampGpxIndex = null;
   let lastValidTimestampRaw = null;
   
   // Helper to format time for display
@@ -70,18 +80,22 @@ function auditTimestamps(points) {
   // Iterate through all points
   for (let i = 0; i < points.length; i++) {
     const point = points[i];
+    const currentGpxIndex = point.gpxIndex;
     const timeRaw = point.timeRaw;
     
     // Check for missing timestamp
     if (timeRaw === null) {
       missingTimestampCount++;
+      missingTimestampEvents.push({
+        index: currentGpxIndex
+      });
       if (!inMissingBlock) {
         inMissingBlock = true;
-        currentMissingBlockStartIndex = i;
-        currentMissingBlockEndIndex = i;
+        currentMissingBlockStartIndex = currentGpxIndex;
+        currentMissingBlockEndIndex = currentGpxIndex;
         currentMissingBlockLength = 1;
       } else {
-        currentMissingBlockEndIndex = i;
+        currentMissingBlockEndIndex = currentGpxIndex;
         currentMissingBlockLength++;
       }
       continue; // Skip comparison for missing timestamps
@@ -108,7 +122,35 @@ function auditTimestamps(points) {
     // Check if parsing failed
     if (isNaN(timestampMs)) {
       unparsableTimestampCount++;
+      unparsableTimestampEvents.push({
+        index: currentGpxIndex,
+        rawTime: timeRaw
+      });
+      if (!inUnparsableBlock) {
+        inUnparsableBlock = true;
+        currentUnparsableBlockStartIndex = currentGpxIndex;
+        currentUnparsableBlockEndIndex = currentGpxIndex;
+        currentUnparsableBlockLength = 1;
+      } else {
+        currentUnparsableBlockEndIndex = currentGpxIndex;
+        currentUnparsableBlockLength++;
+      }
       continue; // Skip comparison for unparsable timestamps
+    }
+    
+    // Close open unparsable-timestamp block (only keep blocks with length > 1)
+    if (inUnparsableBlock) {
+      if (currentUnparsableBlockLength > 1) {
+        unparsableTimestampBlocks.push({
+          startIndex: currentUnparsableBlockStartIndex,
+          endIndex: currentUnparsableBlockEndIndex,
+          length: currentUnparsableBlockLength
+        });
+      }
+      inUnparsableBlock = false;
+      currentUnparsableBlockStartIndex = null;
+      currentUnparsableBlockEndIndex = null;
+      currentUnparsableBlockLength = 0;
     }
     
     // Track first valid timestamp (set once)
@@ -123,18 +165,21 @@ function auditTimestamps(points) {
       if (timestampMs === lastValidTimestampMs) {
         duplicateTimestampCount++;
         duplicateTimestampEvents.push({
-          index: i,
-          prevIndex: lastValidTimestampIndex,
+          index: currentGpxIndex,
+          prevIndex: lastValidTimestampGpxIndex,
           time: formatTime(timeRaw)
         });
         // Track duplicate timestamp block
         if (!inDuplicateBlock) {
           inDuplicateBlock = true;
-          currentDuplicateBlockStartIndex = i;
-          currentDuplicateBlockEndIndex = i;
+          // Backtracking-style semantics:
+          // first duplicate event remains singleton unless another duplicate follows.
+          currentDuplicateBlockStartIndex = currentGpxIndex;
+          currentDuplicateBlockEndIndex = currentGpxIndex;
           currentDuplicateBlockLength = 1;
+          currentDuplicateBlockTime = formatTime(timeRaw);
         } else {
-          currentDuplicateBlockEndIndex = i;
+          currentDuplicateBlockEndIndex = currentGpxIndex;
           currentDuplicateBlockLength++;
         }
       }
@@ -148,13 +193,15 @@ function auditTimestamps(points) {
             duplicateTimestampBlocks.push({
               startIndex: currentDuplicateBlockStartIndex,
               endIndex: currentDuplicateBlockEndIndex,
-              length: currentDuplicateBlockLength
+              length: currentDuplicateBlockLength,
+              time: currentDuplicateBlockTime
             });
           }
           inDuplicateBlock = false;
           currentDuplicateBlockStartIndex = null;
           currentDuplicateBlockEndIndex = null;
           currentDuplicateBlockLength = 0;
+          currentDuplicateBlockTime = null;
         }
         
         // Close open backtracking block if any (only keep blocks with length > 1)
@@ -185,13 +232,15 @@ function auditTimestamps(points) {
             duplicateTimestampBlocks.push({
               startIndex: currentDuplicateBlockStartIndex,
               endIndex: currentDuplicateBlockEndIndex,
-              length: currentDuplicateBlockLength
+              length: currentDuplicateBlockLength,
+              time: currentDuplicateBlockTime
             });
           }
           inDuplicateBlock = false;
           currentDuplicateBlockStartIndex = null;
           currentDuplicateBlockEndIndex = null;
           currentDuplicateBlockLength = 0;
+          currentDuplicateBlockTime = null;
         }
         
         totalBacktrackingPoints++;
@@ -207,13 +256,13 @@ function auditTimestamps(points) {
         if (!inBlock) {
           // Start new block
           inBlock = true;
-          currentBlockStartIndex = i;
-          currentBlockEndIndex = i;
+          currentBlockStartIndex = currentGpxIndex;
+          currentBlockEndIndex = currentGpxIndex;
           currentBlockLength = 1;
           currentBlockMaxDepthMs = depth;
         } else {
           // Continue existing block
-          currentBlockEndIndex = i;
+          currentBlockEndIndex = currentGpxIndex;
           currentBlockLength++;
           if (depth > currentBlockMaxDepthMs) {
             currentBlockMaxDepthMs = depth;
@@ -222,8 +271,8 @@ function auditTimestamps(points) {
         
         // Log backtracking event
         backtrackingPointEvents.push({
-          index: i,
-          prevIndex: lastValidTimestampIndex,
+          index: currentGpxIndex,
+          prevIndex: lastValidTimestampGpxIndex,
           prevTime: formatTime(lastValidTimestampRaw),
           currTime: formatTime(timeRaw)
         });
@@ -235,7 +284,7 @@ function auditTimestamps(points) {
     
     // Update last valid timestamp for next comparison
     lastValidTimestampMs = timestampMs;
-    lastValidTimestampIndex = i;
+    lastValidTimestampGpxIndex = currentGpxIndex;
     lastValidTimestampRaw = timeRaw;
   }
   
@@ -244,7 +293,8 @@ function auditTimestamps(points) {
     duplicateTimestampBlocks.push({
       startIndex: currentDuplicateBlockStartIndex,
       endIndex: currentDuplicateBlockEndIndex,
-      length: currentDuplicateBlockLength
+      length: currentDuplicateBlockLength,
+      time: currentDuplicateBlockTime
     });
   }
   
@@ -283,6 +333,23 @@ function auditTimestamps(points) {
     });
   }
   
+  // Close any open unparsable-timestamp block at end of file (only keep blocks with length > 1)
+  if (inUnparsableBlock && currentUnparsableBlockLength > 1) {
+    unparsableTimestampBlocks.push({
+      startIndex: currentUnparsableBlockStartIndex,
+      endIndex: currentUnparsableBlockEndIndex,
+      length: currentUnparsableBlockLength
+    });
+  }
+  
+  // Compute largest unparsable-timestamp block length
+  let largestUnparsableTimestampBlockLength = 0;
+  for (let ub = 0; ub < unparsableTimestampBlocks.length; ub++) {
+    if (unparsableTimestampBlocks[ub].length > largestUnparsableTimestampBlockLength) {
+      largestUnparsableTimestampBlockLength = unparsableTimestampBlocks[ub].length;
+    }
+  }
+  
   // Compute largest backtracking block length
   let largestBacktrackingBlockLength = 0;
   for (let b = 0; b < backtrackingBlocks.length; b++) {
@@ -298,25 +365,90 @@ function auditTimestamps(points) {
   }
   
   // Build audit metadata object
+  const validParsedTimestampCount =
+    totalPointsChecked - missingTimestampCount - unparsableTimestampCount;
+  const missingTimestampRatio = totalPointsChecked > 0 ? missingTimestampCount / totalPointsChecked : 0;
+  const unparsableTimestampRatio = totalPointsChecked > 0 ? unparsableTimestampCount / totalPointsChecked : 0;
+  const duplicateTimestampRatio = totalPointsChecked > 0 ? duplicateTimestampCount / totalPointsChecked : 0;
+
+  // Build singleton-only anomaly views (events not included in any length>1 block).
+  const collectBlockIndices = (blocks) => {
+    const blockIndexSet = new Set();
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const block = blocks[bi];
+      for (let idx = block.startIndex; idx <= block.endIndex; idx++) {
+        blockIndexSet.add(idx);
+      }
+    }
+    return blockIndexSet;
+  };
+
+  const filterSingletonEvents = (events, blocks) => {
+    const blockedIndices = collectBlockIndices(blocks);
+    const singletonEvents = [];
+    for (let ei = 0; ei < events.length; ei++) {
+      const event = events[ei];
+      if (!blockedIndices.has(event.index)) {
+        singletonEvents.push(event);
+      }
+    }
+    return singletonEvents;
+  };
+
+  const missingTimestampSinglePointEvents =
+    filterSingletonEvents(missingTimestampEvents, missingTimestampBlocks);
+  const unparsableTimestampSinglePointEvents =
+    filterSingletonEvents(unparsableTimestampEvents, unparsableTimestampBlocks);
+  const duplicateTimestampSinglePointEvents =
+    filterSingletonEvents(duplicateTimestampEvents, duplicateTimestampBlocks);
+  const backtrackingSinglePointEvents =
+    filterSingletonEvents(backtrackingPointEvents, backtrackingBlocks);
+
   const auditMetadata = {
-    totalPointsChecked: totalPointsChecked,
-    missingTimestampCount: missingTimestampCount,
-    unparsableTimestampCount: unparsableTimestampCount,
-    duplicateTimestampCount: duplicateTimestampCount,
-    strictlyIncreasingCount: strictlyIncreasingCount,
-    maxBacktrackingDepthMs: maxBacktrackingDepthMs,
-    backtrackingPointEvents: backtrackingPointEvents,
-    duplicateTimestampEvents: duplicateTimestampEvents,
-    rawSessionDurationSec: rawSessionDurationSec,
-    backtrackingBlocks: backtrackingBlocks,
-    totalBacktrackingPoints: totalBacktrackingPoints,
-    largestBacktrackingBlockLength: largestBacktrackingBlockLength,
-    duplicateTimestampBlocks: duplicateTimestampBlocks,
-    largestDuplicateTimestampBlockLength: largestDuplicateTimestampBlockLength,
-    duplicateTimestampRatio: totalPointsChecked > 0 ? duplicateTimestampCount / totalPointsChecked : 0,
-    missingTimestampBlocks: missingTimestampBlocks,
-    largestMissingTimestampBlockLength: largestMissingTimestampBlockLength,
-    missingTimestampRatio: totalPointsChecked > 0 ? missingTimestampCount / totalPointsChecked : 0
+    audit: {
+      temporal: {
+        totalPointsChecked: totalPointsChecked,
+        session: {
+          rawSessionDurationSec: rawSessionDurationSec,
+          validParsedTimestampCount: validParsedTimestampCount
+        },
+        temporalOrder: {
+          strictlyIncreasingCount: strictlyIncreasingCount,
+          missing: {
+            count: missingTimestampCount,
+            ratio: missingTimestampRatio,
+            largestBlockLength: largestMissingTimestampBlockLength,
+            blocks: missingTimestampBlocks,
+            singlePointCount: missingTimestampSinglePointEvents.length,
+            singlePointEvents: missingTimestampSinglePointEvents
+          },
+          unparsable: {
+            count: unparsableTimestampCount,
+            ratio: unparsableTimestampRatio,
+            largestBlockLength: largestUnparsableTimestampBlockLength,
+            blocks: unparsableTimestampBlocks,
+            singlePointCount: unparsableTimestampSinglePointEvents.length,
+            singlePointEvents: unparsableTimestampSinglePointEvents
+          },
+          duplicate: {
+            count: duplicateTimestampCount,
+            ratio: duplicateTimestampRatio,
+            largestBlockLength: largestDuplicateTimestampBlockLength,
+            blocks: duplicateTimestampBlocks,
+            singlePointCount: duplicateTimestampSinglePointEvents.length,
+            singlePointEvents: duplicateTimestampSinglePointEvents
+          },
+          backtracking: {
+            count: totalBacktrackingPoints,
+            maxDepthMs: maxBacktrackingDepthMs,
+            largestBlockLength: largestBacktrackingBlockLength,
+            blocks: backtrackingBlocks,
+            singlePointCount: backtrackingSinglePointEvents.length,
+            singlePointEvents: backtrackingSinglePointEvents
+          }
+        }
+      }
+    }
   };
   
   // // TEMPORARY: Backtracking block detection verification

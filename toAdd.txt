@@ -1,1 +1,3 @@
-i think i completely forgot that elevation is a thing in gpx. use it in relevant places afterwards. 
+i think i completely forgot that elevation is a thing in gpx. use it in relevant places afterwards.
+
+regression pattern for backtracking to check if the backtracking block that is recorded is linearly regressing or is a stitched anomaly

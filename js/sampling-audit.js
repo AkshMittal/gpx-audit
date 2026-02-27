@@ -42,7 +42,6 @@ function auditSampling(points, gpxFilename) {
   const timeDeltasMs = []; // Array<{ fromIndex, toIndex, dtSec }>
   const distanceDeltasMTimeConditioned = []; // Array<{ fromIndex, toIndex, ddMeters }>
   const distanceDeltasMGeometryOnly = []; // Array<{ fromIndex, toIndex, ddMeters }>
-  const timeDistancePairs = []; // Initialize early for result object; Array<{ fromIndex, toIndex, dtSec, ddMeters }>
   let previousTimestampMs = null;
   let previousTimestampGpxIndex = null;
   let previousPoint = null; // Track previous point with valid coordinates (lat, lon, gpxIndex)
@@ -60,7 +59,7 @@ function auditSampling(points, gpxFilename) {
   
   // Distance delta audit counters (geometry-only mode)
   let consecutivePointPairsConsidered = 0;
-  let rejectedDistanceInvalidOrZero = 0;
+  let rejectedDistanceNonFiniteOrNegative = 0;
   
   // Iterate through all points in order
   // Note: All points are assumed to have valid coordinates (validated during ingestion)
@@ -97,7 +96,7 @@ function auditSampling(points, gpxFilename) {
           ddMeters: distanceFromPrev
         });
       } else {
-        rejectedDistanceInvalidOrZero++;
+        rejectedDistanceNonFiniteOrNegative++;
       }
     }
     
@@ -168,7 +167,7 @@ function auditSampling(points, gpxFilename) {
     // console.log('=== Distance Delta Audit (geometry-only) ===');
     // console.log('Consecutive point pairs considered:', consecutivePointPairsConsidered);
     // console.log('Distance deltas collected:', distanceDeltasMGeometryOnly.length);
-    // console.log('Rejected (invalid or zero distance):', rejectedDistanceInvalidOrZero);
+    // console.log('Rejected (non-finite or negative distance):', rejectedDistanceNonFiniteOrNegative);
     // console.log('============================================');
   }
   
@@ -194,20 +193,9 @@ function auditSampling(points, gpxFilename) {
     }
   }
   
-  // Build result object
-  const result = {
-    timeDeltasMs: timeDeltasMs,
-    totalDeltaCount: totalDeltaCount,
-    minDeltaMs: minDeltaMs,
-    maxDeltaMs: maxDeltaMs,
-    medianDeltaMs: medianDeltaMs,
-    distanceDeltasM: distanceDeltasM,
-    distanceDeltasMGeometryOnly: distanceDeltasMGeometryOnly,
-    distanceDeltasMTimeConditioned: distanceDeltasMTimeConditioned,
-    timeDistancePairs: timeDistancePairs,
-    hasTimeProgression: hasTimeProgression,
-    hasValidTimestamps: hasValidTimestamps
-  };
+  // Hold clustering outputs for nested return payload
+  let timeSamplingClusters = null;
+  let timeNormalizationMeta = null;
   
   // Console log the audit results
   // console.log('=== Sampling Audit Results ===');
@@ -225,163 +213,12 @@ function auditSampling(points, gpxFilename) {
   // console.log('Total distance deltas collected:', distanceDeltasM.length);
   // console.log('================================');
   
-  // Separate pass: Joint time-distance audit artifact
-  // Only generate when timestamps show positive progression (hasTimeProgression)
-  // Note: timeDistancePairs was initialized at the top of the function
-  
-  // Joint audit counters
-  let jointConsecutivePairsInspected = 0;
-  let jointPairsWithBothTimestamps = 0;
-  let jointRejectedMissingTimestamp = 0;
-  let jointRejectedNonPositiveDt = 0;
-  let jointRejectedInvalidOrZeroDistance = 0;
-  let jointValidPairsCollected = 0;
-  
-  if (hasTimeProgression) {
-    let prevPoint = null;
-    let prevTimestampMs = null;
-    
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i];
-      const timeRaw = point.timeRaw;
-      
-      // Check if current point has valid timestamp
-      let currentTimestampMs = null;
-      if (timeRaw !== null) {
-        currentTimestampMs = Date.parse(timeRaw);
-        if (isNaN(currentTimestampMs)) {
-          currentTimestampMs = null;
-        }
-      }
-      
-      // Count consecutive pairs inspected (when we have a previous point)
-      if (prevPoint !== null) {
-        jointConsecutivePairsInspected++;
-      }
-      
-      // Include pair only if both current and previous points have valid timestamps
-      if (currentTimestampMs !== null && prevTimestampMs !== null && prevPoint !== null) {
-        jointPairsWithBothTimestamps++;
-        
-        // Compute positive time delta in seconds
-        const dtMs = currentTimestampMs - prevTimestampMs;
-        const dtSec = dtMs / 1000;
-        
-        // Compute haversine distance in meters (ddMeters >= 0 allowed)
-        const ddMeters = haversineDistance(
-          prevPoint.lat,
-          prevPoint.lon,
-          point.lat,
-          point.lon
-        );
-        
-        // Include pair only if dtSec > 0 and ddMeters finite and >= 0
-        if (dtSec > 0 && isFinite(ddMeters) && ddMeters >= 0) {
-          jointValidPairsCollected++;
-          timeDistancePairs.push({
-            fromIndex: prevPoint.gpxIndex,
-            toIndex: point.gpxIndex,
-            dtSec: dtSec,
-            ddMeters: ddMeters
-          });
-        } else {
-          if (dtSec <= 0) {
-            jointRejectedNonPositiveDt++;
-          }
-          if (!isFinite(ddMeters) || ddMeters < 0) {
-            jointRejectedInvalidOrZeroDistance++;
-          }
-        }
-      } else if (prevPoint !== null) {
-        // We have a previous point but missing timestamp on current or previous
-        jointRejectedMissingTimestamp++;
-      }
-      
-      // Update previous point and timestamp if current has valid timestamp
-      if (currentTimestampMs !== null) {
-        prevPoint = { lat: point.lat, lon: point.lon, gpxIndex: point.gpxIndex };
-        prevTimestampMs = currentTimestampMs;
-      }
-    }
-    
-    // Joint time-distance audit summary
-    // console.log('=== Joint Time-Distance Audit ===');
-    // console.log('Consecutive pairs inspected:', jointConsecutivePairsInspected);
-    // console.log('Pairs with both timestamps:', jointPairsWithBothTimestamps);
-    // console.log('Valid joint pairs collected:', jointValidPairsCollected);
-    // console.log('Rejected:');
-    // console.log('  - Missing timestamp:', jointRejectedMissingTimestamp);
-    // console.log('  - Non-positive Δt:', jointRejectedNonPositiveDt);
-    // console.log('  - Invalid/zero distance:', jointRejectedInvalidOrZeroDistance);
-    // console.log('================================');
-  }
-  
-  // Derived statistics from valid timeDistancePairs
-  let totalValidTimeSec = null;
-  let totalValidDistanceM = null;
-  let meanSpeedMs = null;   // m/s — total valid distance / total valid time
-  let medianSpeedMs = null; // m/s — median of per-pair speeds
-  let maxSpeedMs = null;    // m/s — maximum per-pair speed
-  let invalidTimeRatio = null; // rejected non-positive dt pairs / total pairs with both timestamps
-  
-  if (timeDistancePairs.length > 0) {
-    totalValidTimeSec = 0;
-    totalValidDistanceM = 0;
-    const pairSpeeds = []; // per-pair speed in m/s
-    
-    for (let i = 0; i < timeDistancePairs.length; i++) {
-      totalValidTimeSec += timeDistancePairs[i].dtSec;
-      totalValidDistanceM += timeDistancePairs[i].ddMeters;
-      pairSpeeds.push(timeDistancePairs[i].ddMeters / timeDistancePairs[i].dtSec);
-    }
-    
-    // Mean speed = total valid distance / total valid time
-    meanSpeedMs = totalValidDistanceM / totalValidTimeSec;
-    
-    // Sort speeds for median and max
-    pairSpeeds.sort((a, b) => a - b);
-    
-    // Max speed
-    maxSpeedMs = pairSpeeds[pairSpeeds.length - 1];
-    
-    // Median speed
-    const mid = Math.floor(pairSpeeds.length / 2);
-    if (pairSpeeds.length % 2 === 0) {
-      medianSpeedMs = (pairSpeeds[mid - 1] + pairSpeeds[mid]) / 2;
-    } else {
-      medianSpeedMs = pairSpeeds[mid];
-    }
-  }
-  
-  // Invalid time ratio: rejected non-positive dt pairs / total pairs with both timestamps
-  if (jointPairsWithBothTimestamps > 0) {
-    invalidTimeRatio = jointRejectedNonPositiveDt / jointPairsWithBothTimestamps;
-  }
-  
-  // Attach derived statistics to result
-  result.totalValidTimeSec = totalValidTimeSec;
-  result.totalValidDistanceM = totalValidDistanceM;
-  result.meanSpeedMs = meanSpeedMs;
-  result.medianSpeedMs = medianSpeedMs;
-  result.maxSpeedMs = maxSpeedMs;
-  result.invalidTimeRatio = invalidTimeRatio;
-  
-  // Expose counters for pipeline status display (same values used for console logging)
-  result.rejectedTimestampPairsDeltaLeqZero = rejectedTimestampPairsDeltaLeqZero;
-  result.consecutivePointPairsConsidered = consecutivePointPairsConsidered;
-  result.rejectedDistanceInvalidOrZero = rejectedDistanceInvalidOrZero;
-  result.jointPairsWithBothTimestamps = jointPairsWithBothTimestamps;
-  result.jointRejectedMissingTimestamp = jointRejectedMissingTimestamp;
-  result.jointRejectedNonPositiveDt = jointRejectedNonPositiveDt;
-  result.jointRejectedInvalidOrZeroDistance = jointRejectedInvalidOrZeroDistance;
-  result.nonPositiveTimeDeltaEvents = nonPositiveTimeDeltaEvents;
-  
   // ── Time-delta sampling regime detection via 2% relative clustering ──
   var TIME_CLUSTER_ALPHA = 0.02;
   
   if (timeDeltasMs.length === 0) {
-    result.timeSamplingClusters = null;
-    result.timeNormalizationMeta = null;
+    timeSamplingClusters = null;
+    timeNormalizationMeta = null;
   } else {
     // Extract dtSec values in original order (does not mutate timeDeltasMs)
     var timeDeltasSec = [];
@@ -468,7 +305,7 @@ function auditSampling(points, gpxFilename) {
       clusterDescriptors.push({
         centerSec: center,
         count: count,
-        percentage: count / totalDeltas,
+        ratio: count / totalDeltas,
         minSec: minSec,
         maxSec: maxSec,
         spreadSec: maxSec - minSec,
@@ -589,11 +426,12 @@ function auditSampling(points, gpxFilename) {
     var globalFinalMeanRelativeDeviation =
       totalDeltas > 0 ? sumFinalRelDevWeighted / totalDeltas : 0;
     
-    result.timeSamplingClusters = clusterDescriptors;
-    result.timeNormalizationMeta = {
+    timeSamplingClusters = clusterDescriptors;
+    timeNormalizationMeta = {
       alphaUsed: TIME_CLUSTER_ALPHA,
       totalDeltas: totalDeltas,
       clusterCount: clusters.length,
+      clusterCountSequential: K_seq,
       meanAbsoluteAdjustmentSec: sumAbsDiff / totalDeltas,
       maxAbsoluteAdjustmentSec: maxAbsDiff,
       meanRelativeAdjustment: sumRelDiff / totalDeltas,
@@ -640,23 +478,76 @@ function auditSampling(points, gpxFilename) {
     // }
     // console.log('');
     // console.log('--- Normalization Metadata ---');
-    // console.log('  meanAbsoluteAdjustmentSec:', result.timeNormalizationMeta.meanAbsoluteAdjustmentSec);
-    // console.log('  maxAbsoluteAdjustmentSec:', result.timeNormalizationMeta.maxAbsoluteAdjustmentSec);
-    // console.log('  meanRelativeAdjustment:', result.timeNormalizationMeta.meanRelativeAdjustment);
-    // console.log('  maxRelativeAdjustment:', result.timeNormalizationMeta.maxRelativeAdjustment);
-    // console.log('  globalFinalMeanAbsoluteDeviationSec:', result.timeNormalizationMeta.globalFinalMeanAbsoluteDeviationSec);
-    // console.log('  globalFinalMaxAbsoluteDeviationSec:', result.timeNormalizationMeta.globalFinalMaxAbsoluteDeviationSec);
-    // console.log('  globalFinalMeanRelativeDeviation:', result.timeNormalizationMeta.globalFinalMeanRelativeDeviation);
-    // console.log('  globalFinalMaxRelativeDeviation:', result.timeNormalizationMeta.globalFinalMaxRelativeDeviation);
-    // console.log('  sortedCompressionRatio:', result.timeNormalizationMeta.sortedCompressionRatio);
-    // console.log('  sequentialCompressionRatio:', result.timeNormalizationMeta.sequentialCompressionRatio);
-    // console.log('  samplingStabilityRatio:', result.timeNormalizationMeta.samplingStabilityRatio);
+    // console.log('  meanAbsoluteAdjustmentSec:', timeNormalizationMeta.meanAbsoluteAdjustmentSec);
+    // console.log('  maxAbsoluteAdjustmentSec:', timeNormalizationMeta.maxAbsoluteAdjustmentSec);
+    // console.log('  meanRelativeAdjustment:', timeNormalizationMeta.meanRelativeAdjustment);
+    // console.log('  maxRelativeAdjustment:', timeNormalizationMeta.maxRelativeAdjustment);
+    // console.log('  globalFinalMeanAbsoluteDeviationSec:', timeNormalizationMeta.globalFinalMeanAbsoluteDeviationSec);
+    // console.log('  globalFinalMaxAbsoluteDeviationSec:', timeNormalizationMeta.globalFinalMaxAbsoluteDeviationSec);
+    // console.log('  globalFinalMeanRelativeDeviation:', timeNormalizationMeta.globalFinalMeanRelativeDeviation);
+    // console.log('  globalFinalMaxRelativeDeviation:', timeNormalizationMeta.globalFinalMaxRelativeDeviation);
+    // console.log('  sortedCompressionRatio:', timeNormalizationMeta.sortedCompressionRatio);
+    // console.log('  sequentialCompressionRatio:', timeNormalizationMeta.sequentialCompressionRatio);
+    // console.log('  samplingStabilityRatio:', timeNormalizationMeta.samplingStabilityRatio);
     // console.log('  adjustedCount:', adjustedCount);
     // console.log('  unchangedCount:', unchangedCount);
     // console.log('============================================');
   }
   
-  return result;
+  return {
+    audit: {
+      sampling: {
+        time: {
+          timestampContext: {
+            hasValidTimestamps: hasValidTimestamps,
+            hasTimeProgression: hasTimeProgression,
+            timestampedPointsCount: timestampedPointsCount,
+            consecutiveTimestampPairsCount: consecutiveTimestampPairsCount,
+            positiveTimeDeltasCollected: positiveTimeDeltasCollected,
+            rejections: {
+              nonPositiveTimeDelta: {
+                count: rejectedTimestampPairsDeltaLeqZero,
+                events: nonPositiveTimeDeltaEvents
+              }
+            }
+          },
+          deltaStatistics: {
+            count: totalDeltaCount,
+            minMs: minDeltaMs,
+            maxMs: maxDeltaMs,
+            medianMs: medianDeltaMs
+          },
+          clustering: {
+            alphaUsed: TIME_CLUSTER_ALPHA,
+            totalDeltas: timeNormalizationMeta ? timeNormalizationMeta.totalDeltas : 0,
+            clusterCountSorted: timeNormalizationMeta ? timeNormalizationMeta.clusterCount : 0,
+            clusterCountSequential: timeNormalizationMeta ? timeNormalizationMeta.clusterCountSequential : 0,
+            sortedCompressionRatio: timeNormalizationMeta ? timeNormalizationMeta.sortedCompressionRatio : 0,
+            sequentialCompressionRatio: timeNormalizationMeta ? timeNormalizationMeta.sequentialCompressionRatio : 0,
+            samplingStabilityRatio: timeNormalizationMeta ? timeNormalizationMeta.samplingStabilityRatio : 0,
+            clusters: timeSamplingClusters || []
+          },
+          normalization: timeNormalizationMeta || null
+        },
+        distance: {
+          pairInspection: {
+            consecutivePairCount: consecutivePointPairsConsidered,
+            rejections: {
+              invalidDistance: {
+                count: rejectedDistanceNonFiniteOrNegative
+              }
+            }
+          },
+          geometryOnly: {
+            deltaCount: distanceDeltasMGeometryOnly.length
+          },
+          timeConditioned: {
+            deltaCount: distanceDeltasMTimeConditioned.length
+          }
+        }
+      }
+    }
+  };
 }
 
 /**
