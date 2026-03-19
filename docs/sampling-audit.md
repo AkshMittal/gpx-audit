@@ -1,4 +1,113 @@
-# Sampling Audit Module
+# Sampling Audit Module (Schema v2)
+
+## Purpose
+
+The sampling module performs an observational audit of time-delta sampling behavior and distance deltas. It does not mutate GPX points.
+
+## Core principles
+
+- Time audit and distance audit are separated.
+- Time-conditioned metrics require positive time progression.
+- Geometry-only distance metrics are always available from consecutive coordinate pairs.
+- Clustering uses insertion-time threshold checks and final-center spread summaries.
+
+## Time context fields
+
+`audit.sampling.time.timestampContext`
+
+- `hasAnyParseableTimestamp`: at least one parseable timestamp exists.
+- `hasAnyPositiveTimeDelta`: at least one consecutive positive delta exists.
+- `timestampedPointsCount`: points with parseable timestamp.
+- `consecutiveTimestampPairsCount`: consecutive parseable pairs encountered.
+- `positiveTimeDeltaCount`: count of collected positive deltas.
+- `rejections.nonPositiveTimeDeltaPairs.nonPositivePairCount`: rejected parseable pairs where delta <= 0.
+- `rejections.nonPositiveTimeDeltaPairs.events`: event-level rejects.
+
+## Time delta statistics
+
+`audit.sampling.time.deltaStatistics`
+
+- `positiveDeltaCount`
+- `minMs`
+- `maxMs`
+- `medianMs`
+
+## Clustering (v2 semantics)
+
+`audit.sampling.time.clustering`
+
+- `insertionRelativeThreshold`: alpha used at insertion check.
+- `totalPositiveTimeDeltaCount`
+- `sortedClusterCount`
+- `sequentialClusterCount`
+- `sortedClusterCountOverTotalDeltasRatio`
+- `sequentialClusterCountOverTotalDeltasRatio`
+- `sequentialOverSortedClusterCountRatio`
+- `clusters`
+
+Each cluster object includes:
+
+- `centerSec`: final stabilized center (median of cluster values).
+- `count`
+- `clusterShareOfTotalDeltas`
+- `minSec`
+- `maxSec`
+- `spreadSec`
+- `meanInsertionRelativeDeviation`
+- `maxInsertionRelativeDeviation`
+- `meanInsertionAbsoluteDeviationSec`
+- `maxInsertionAbsoluteDeviationSec`
+- `finalMeanAbsoluteDeviationSec`
+- `finalMaxAbsoluteDeviationSec`
+- `finalMeanRelativeDeviation`
+- `finalMaxRelativeDeviation`
+- `finalSpreadOverCenterRatio`
+
+### Important math distinction
+
+- Insertion deviation metrics are computed against the center at the moment of acceptance.
+- Final deviation metrics are computed against final `centerSec`.
+- Therefore:
+  - `maxInsertionRelativeDeviation` should stay below `insertionRelativeThreshold` by construction.
+  - `finalMaxRelativeDeviation` can exceed the threshold due to center drift/chaining.
+
+## Normalization metadata
+
+`audit.sampling.time.normalization`
+
+- `insertionRelativeThreshold`
+- `totalPositiveTimeDeltaCount`
+- `sortedClusterCount`
+- `sequentialClusterCount`
+- `meanFinalAbsoluteDeviationSec`
+- `maxFinalAbsoluteDeviationSec`
+- `meanFinalRelativeDeviation`
+- `maxFinalRelativeDeviation`
+- `globalFinalMeanAbsoluteDeviationSec`
+- `globalFinalMaxAbsoluteDeviationSec`
+- `globalFinalMeanRelativeDeviation`
+- `globalFinalMaxRelativeDeviation`
+- `sortedClusterCountOverTotalDeltasRatio`
+- `sequentialClusterCountOverTotalDeltasRatio`
+- `sequentialOverSortedClusterCountRatio`
+- `nonZeroFinalDeviationCount`
+- `zeroFinalDeviationCount`
+
+## Distance section
+
+`audit.sampling.distance`
+
+- `pairInspection.consecutivePairCount`
+- `pairInspection.rejections.invalidDistance.count`
+- `geometryOnly.deltaCount`
+- `timeConditioned.deltaCount`
+
+## Notes
+
+- Time delta collection uses only positive deltas.
+- Distance audit allows geometry-only fallback when time progression is absent.
+- Module output is observational and deterministic for same input order.
+omfg # Sampling Audit Module
 
 ## Overview
 

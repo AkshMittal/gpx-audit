@@ -32,7 +32,7 @@ function buildAuditExportPayload(input) {
 
   return {
     metadata: {
-      schemaVersion: '1.0.0',
+      schemaVersion: '2.0.0',
       generatedAtUtc: new Date().toISOString(),
       source: {
         fileName: input && input.fileName ? input.fileName : null

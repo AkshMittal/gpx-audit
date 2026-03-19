@@ -80,11 +80,11 @@ function loadBrowserModules() {
   global.URL = dom.window.URL;
 
   const moduleFiles = [
-    path.join(ROOT, "js", "gpx-ingestion-module.js"),
-    path.join(ROOT, "js", "timestamp-audit.js"),
-    path.join(ROOT, "js", "sampling-audit.js"),
-    path.join(ROOT, "js", "motion-audit.js"),
-    path.join(ROOT, "js", "audit-export-module.js")
+    path.join(ROOT, "js", "pipeline", "gpx-ingestion-module.js"),
+    path.join(ROOT, "js", "pipeline", "timestamp-audit.js"),
+    path.join(ROOT, "js", "pipeline", "sampling-audit.js"),
+    path.join(ROOT, "js", "pipeline", "motion-audit.js"),
+    path.join(ROOT, "js", "pipeline", "audit-export-module.js")
   ];
 
   for (const filePath of moduleFiles) {

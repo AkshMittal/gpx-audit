@@ -120,11 +120,11 @@ function auditSampling(points, gpxFilename) {
           
           // Time-conditioned distance delta: reuse already-computed haversine from geometry-only block
           if (previousPoint !== null && distanceFromPrevValid) {
-            distanceDeltasMTimeConditioned.push({
-              fromIndex: previousPoint.gpxIndex,
-              toIndex: point.gpxIndex,
+              distanceDeltasMTimeConditioned.push({
+                fromIndex: previousPoint.gpxIndex,
+                toIndex: point.gpxIndex,
               ddMeters: distanceFromPrev
-            });
+              });
           }
         } else {
           rejectedTimestampPairsDeltaLeqZero++;
@@ -242,28 +242,51 @@ function auditSampling(points, gpxFilename) {
       return arr[mid];
     }
     
-    // 1D relative-tolerance clustering on sorted values
-    var clusters = []; // each: { values: number[] }
+    // 1D insertion-threshold clustering on sorted values.
+    // Membership check is performed against center at insertion time.
+    var clusters = []; // each: { values, insertionRelativeDeviations, insertionAbsoluteDeviationsSec, insertionCenterSecs }
     var currentClusterValues = [dtValues[0]];
+    var currentInsertionRelativeDeviations = [0];
+    var currentInsertionAbsoluteDeviationsSec = [0];
+    var currentInsertionCenterSecs = [dtValues[0]];
     var currentCenter = dtValues[0]; // median of current cluster (single element = itself)
     
     for (var di = 1; di < dtValues.length; di++) {
       var val = dtValues[di];
-      // Check relative distance from current cluster center
-      if (currentCenter > 0 && Math.abs(val - currentCenter) / currentCenter < TIME_CLUSTER_ALPHA) {
+      // Check relative distance from current cluster center at insertion time
+      var insertionCenterSec = currentCenter;
+      var insertionAbsDevSec = Math.abs(val - insertionCenterSec);
+      var insertionRelDev = insertionCenterSec > 0 ? insertionAbsDevSec / insertionCenterSec : 0;
+      if (insertionCenterSec > 0 && insertionRelDev < TIME_CLUSTER_ALPHA) {
         // Belongs to current cluster
         currentClusterValues.push(val);
+        currentInsertionRelativeDeviations.push(insertionRelDev);
+        currentInsertionAbsoluteDeviationsSec.push(insertionAbsDevSec);
+        currentInsertionCenterSecs.push(insertionCenterSec);
         // Recompute median as center (values are sorted so currentClusterValues stays sorted)
         currentCenter = sortedMedian(currentClusterValues);
       } else {
         // Finalize current cluster and start new one
-        clusters.push({ values: currentClusterValues });
+        clusters.push({
+          values: currentClusterValues,
+          insertionRelativeDeviations: currentInsertionRelativeDeviations,
+          insertionAbsoluteDeviationsSec: currentInsertionAbsoluteDeviationsSec,
+          insertionCenterSecs: currentInsertionCenterSecs
+        });
         currentClusterValues = [val];
+        currentInsertionRelativeDeviations = [0];
+        currentInsertionAbsoluteDeviationsSec = [0];
+        currentInsertionCenterSecs = [val];
         currentCenter = val;
       }
     }
     // Finalize last cluster
-    clusters.push({ values: currentClusterValues });
+    clusters.push({
+      values: currentClusterValues,
+      insertionRelativeDeviations: currentInsertionRelativeDeviations,
+      insertionAbsoluteDeviationsSec: currentInsertionAbsoluteDeviationsSec,
+      insertionCenterSecs: currentInsertionCenterSecs
+    });
     
     // Build cluster descriptors
     var clusterDescriptors = [];
@@ -274,18 +297,20 @@ function auditSampling(points, gpxFilename) {
       var minSec = vals[0];
       var maxSec = vals[vals.length - 1];
       
-      // Compute relative and absolute deviations from center
-      var sumRelDev = 0;
-      var maxRelDev = 0;
-      var sumAbsDev = 0;
-      var maxAbsDev = 0;
-      for (var vi = 0; vi < vals.length; vi++) {
-        var absDev = Math.abs(vals[vi] - center);
-        var relDev = center > 0 ? absDev / center : 0;
-        sumRelDev += relDev;
-        if (relDev > maxRelDev) maxRelDev = relDev;
-        sumAbsDev += absDev;
-        if (absDev > maxAbsDev) maxAbsDev = absDev;
+      // Insertion-time deviations (bounded by threshold by construction)
+      var insertionRelativeDeviations = clusters[ki].insertionRelativeDeviations;
+      var insertionAbsoluteDeviationsSec = clusters[ki].insertionAbsoluteDeviationsSec;
+      var sumInsertionRelDev = 0;
+      var maxInsertionRelDev = 0;
+      var sumInsertionAbsDev = 0;
+      var maxInsertionAbsDev = 0;
+      for (var vi = 0; vi < insertionRelativeDeviations.length; vi++) {
+        var insRelDev = insertionRelativeDeviations[vi];
+        var insAbsDev = insertionAbsoluteDeviationsSec[vi];
+        sumInsertionRelDev += insRelDev;
+        if (insRelDev > maxInsertionRelDev) maxInsertionRelDev = insRelDev;
+        sumInsertionAbsDev += insAbsDev;
+        if (insAbsDev > maxInsertionAbsDev) maxInsertionAbsDev = insAbsDev;
       }
       
       // Second pass: deviations from final stabilized centerSec
@@ -305,19 +330,19 @@ function auditSampling(points, gpxFilename) {
       clusterDescriptors.push({
         centerSec: center,
         count: count,
-        ratio: count / totalDeltas,
+        clusterShareOfTotalDeltas: count / totalDeltas,
         minSec: minSec,
         maxSec: maxSec,
         spreadSec: maxSec - minSec,
-        meanRelativeDeviation: sumRelDev / count,
-        maxRelativeDeviation: maxRelDev,
-        meanAbsoluteAdjustmentSec: sumAbsDev / count,
-        maxAbsoluteAdjustmentSec: maxAbsDev,
+        meanInsertionRelativeDeviation: sumInsertionRelDev / count,
+        maxInsertionRelativeDeviation: maxInsertionRelDev,
+        meanInsertionAbsoluteDeviationSec: sumInsertionAbsDev / count,
+        maxInsertionAbsoluteDeviationSec: maxInsertionAbsDev,
         finalMeanAbsoluteDeviationSec: sumAbsDevFinal / count,
         finalMaxAbsoluteDeviationSec: maxAbsDevFinal,
         finalMeanRelativeDeviation: sumRelDevFinal / count,
         finalMaxRelativeDeviation: maxRelDevFinal,
-        clusterGlobalSpreadRatio: center > 0 ? (maxSec - minSec) / center : 0
+        finalSpreadOverCenterRatio: center > 0 ? (maxSec - minSec) / center : 0
       });
     }
     
@@ -349,14 +374,14 @@ function auditSampling(points, gpxFilename) {
     }
     var K_seq = sequentialClusters.length;
 
-    var sortedCompressionRatio =
+    var sortedClusterCountOverTotalDeltasRatio =
       totalDeltas > 0 ? K_sorted / totalDeltas : 0;
-    var sequentialCompressionRatio =
+    var sequentialClusterCountOverTotalDeltasRatio =
       totalDeltas > 0 ? K_seq / totalDeltas : 0;
-    var samplingStabilityRatio =
+    var sequentialOverSortedClusterCountRatio =
       K_sorted > 0 ? K_seq / K_sorted : 1;
     if (K_sorted <= 1) {
-      samplingStabilityRatio = 1;
+      sequentialOverSortedClusterCountRatio = 1;
     }
     
     // Build normalization metadata (observational only, no mutation)
@@ -376,75 +401,42 @@ function auditSampling(points, gpxFilename) {
       }
     }
     
-    var sumAbsDiff = 0;
-    var maxAbsDiff = 0;
-    var sumRelDiff = 0;
-    var maxRelDiffGlobal = 0;
-    var adjustedCount = 0;
-    var unchangedCount = 0;
+    var sumFinalAbsDiffSec = 0;
+    var maxFinalAbsDiffSec = 0;
+    var sumFinalRelDiff = 0;
+    var maxFinalRelDiff = 0;
+    var nonZeroFinalDeviationCount = 0;
+    var zeroFinalDeviationCount = 0;
     
     for (var ni = 0; ni < totalDeltas; ni++) {
       var centerVal = clusterCenters[ni];
       var absDiff = Math.abs(dtValues[ni] - centerVal);
       var relDiff = centerVal > 0 ? absDiff / centerVal : 0;
-      sumAbsDiff += absDiff;
-      if (absDiff > maxAbsDiff) maxAbsDiff = absDiff;
-      sumRelDiff += relDiff;
-      if (relDiff > maxRelDiffGlobal) maxRelDiffGlobal = relDiff;
+      sumFinalAbsDiffSec += absDiff;
+      if (absDiff > maxFinalAbsDiffSec) maxFinalAbsDiffSec = absDiff;
+      sumFinalRelDiff += relDiff;
+      if (relDiff > maxFinalRelDiff) maxFinalRelDiff = relDiff;
       if (absDiff > 0) {
-        adjustedCount++;
+        nonZeroFinalDeviationCount++;
       } else {
-        unchangedCount++;
+        zeroFinalDeviationCount++;
       }
     }
 
-    // Aggregate final stabilized per-cluster deviations into global metrics
-    var sumFinalAbsDevWeighted = 0;
-    var sumFinalRelDevWeighted = 0;
-    var globalFinalMaxAbsDev = 0;
-    var globalFinalMaxRelDev = 0;
-    for (var gi = 0; gi < clusterDescriptors.length; gi++) {
-      var cluster = clusterDescriptors[gi];
-      var clusterCount = cluster.count || 0;
-
-      // Weighted sums
-      sumFinalAbsDevWeighted += cluster.finalMeanAbsoluteDeviationSec * clusterCount;
-      sumFinalRelDevWeighted += cluster.finalMeanRelativeDeviation * clusterCount;
-
-      // Max tracking
-      if (cluster.finalMaxAbsoluteDeviationSec > globalFinalMaxAbsDev) {
-        globalFinalMaxAbsDev = cluster.finalMaxAbsoluteDeviationSec;
-      }
-      if (cluster.finalMaxRelativeDeviation > globalFinalMaxRelDev) {
-        globalFinalMaxRelDev = cluster.finalMaxRelativeDeviation;
-      }
-    }
-
-    var globalFinalMeanAbsoluteDeviationSec =
-      totalDeltas > 0 ? sumFinalAbsDevWeighted / totalDeltas : 0;
-
-    var globalFinalMeanRelativeDeviation =
-      totalDeltas > 0 ? sumFinalRelDevWeighted / totalDeltas : 0;
-    
     timeSamplingClusters = clusterDescriptors;
     timeNormalizationMeta = {
-      alphaUsed: TIME_CLUSTER_ALPHA,
-      totalDeltas: totalDeltas,
-      clusterCount: clusters.length,
-      clusterCountSequential: K_seq,
-      meanAbsoluteAdjustmentSec: sumAbsDiff / totalDeltas,
-      maxAbsoluteAdjustmentSec: maxAbsDiff,
-      meanRelativeAdjustment: sumRelDiff / totalDeltas,
-      maxRelativeAdjustment: maxRelDiffGlobal,
-      globalFinalMeanAbsoluteDeviationSec: globalFinalMeanAbsoluteDeviationSec,
-      globalFinalMaxAbsoluteDeviationSec: globalFinalMaxAbsDev,
-      globalFinalMeanRelativeDeviation: globalFinalMeanRelativeDeviation,
-      globalFinalMaxRelativeDeviation: globalFinalMaxRelDev,
-      sortedCompressionRatio: sortedCompressionRatio,
-      sequentialCompressionRatio: sequentialCompressionRatio,
-      samplingStabilityRatio: samplingStabilityRatio,
-      adjustedCount: adjustedCount,
-      unchangedCount: unchangedCount
+      insertionRelativeThreshold: TIME_CLUSTER_ALPHA,
+      sortedClusterCount: clusters.length,
+      sequentialClusterCount: K_seq,
+      meanFinalAbsoluteDeviationSec: sumFinalAbsDiffSec / totalDeltas,
+      maxFinalAbsoluteDeviationSec: maxFinalAbsDiffSec,
+      meanFinalRelativeDeviation: sumFinalRelDiff / totalDeltas,
+      maxFinalRelativeDeviation: maxFinalRelDiff,
+      sortedClusterCountOverTotalDeltasRatio: sortedClusterCountOverTotalDeltasRatio,
+      sequentialClusterCountOverTotalDeltasRatio: sequentialClusterCountOverTotalDeltasRatio,
+      sequentialOverSortedClusterCountRatio: sequentialOverSortedClusterCountRatio,
+      nonZeroFinalDeviationCount: nonZeroFinalDeviationCount,
+      zeroFinalDeviationCount: zeroFinalDeviationCount
     };
     
     // // TEMPORARY: Temporal sampling scheme detection verification
@@ -482,10 +474,6 @@ function auditSampling(points, gpxFilename) {
     // console.log('  maxAbsoluteAdjustmentSec:', timeNormalizationMeta.maxAbsoluteAdjustmentSec);
     // console.log('  meanRelativeAdjustment:', timeNormalizationMeta.meanRelativeAdjustment);
     // console.log('  maxRelativeAdjustment:', timeNormalizationMeta.maxRelativeAdjustment);
-    // console.log('  globalFinalMeanAbsoluteDeviationSec:', timeNormalizationMeta.globalFinalMeanAbsoluteDeviationSec);
-    // console.log('  globalFinalMaxAbsoluteDeviationSec:', timeNormalizationMeta.globalFinalMaxAbsoluteDeviationSec);
-    // console.log('  globalFinalMeanRelativeDeviation:', timeNormalizationMeta.globalFinalMeanRelativeDeviation);
-    // console.log('  globalFinalMaxRelativeDeviation:', timeNormalizationMeta.globalFinalMaxRelativeDeviation);
     // console.log('  sortedCompressionRatio:', timeNormalizationMeta.sortedCompressionRatio);
     // console.log('  sequentialCompressionRatio:', timeNormalizationMeta.sequentialCompressionRatio);
     // console.log('  samplingStabilityRatio:', timeNormalizationMeta.samplingStabilityRatio);
@@ -499,32 +487,31 @@ function auditSampling(points, gpxFilename) {
       sampling: {
         time: {
           timestampContext: {
-            hasValidTimestamps: hasValidTimestamps,
-            hasTimeProgression: hasTimeProgression,
+            hasAnyParseableTimestamp: hasValidTimestamps,
+            hasAnyPositiveTimeDelta: hasTimeProgression,
             timestampedPointsCount: timestampedPointsCount,
             consecutiveTimestampPairsCount: consecutiveTimestampPairsCount,
-            positiveTimeDeltasCollected: positiveTimeDeltasCollected,
+            positiveTimeDeltaCount: positiveTimeDeltasCollected,
             rejections: {
-              nonPositiveTimeDelta: {
-                count: rejectedTimestampPairsDeltaLeqZero,
+              nonPositiveTimeDeltaPairs: {
+                nonPositivePairCount: rejectedTimestampPairsDeltaLeqZero,
                 events: nonPositiveTimeDeltaEvents
               }
             }
           },
           deltaStatistics: {
-            count: totalDeltaCount,
+            positiveDeltaCount: totalDeltaCount,
             minMs: minDeltaMs,
             maxMs: maxDeltaMs,
             medianMs: medianDeltaMs
           },
           clustering: {
-            alphaUsed: TIME_CLUSTER_ALPHA,
-            totalDeltas: timeNormalizationMeta ? timeNormalizationMeta.totalDeltas : 0,
-            clusterCountSorted: timeNormalizationMeta ? timeNormalizationMeta.clusterCount : 0,
-            clusterCountSequential: timeNormalizationMeta ? timeNormalizationMeta.clusterCountSequential : 0,
-            sortedCompressionRatio: timeNormalizationMeta ? timeNormalizationMeta.sortedCompressionRatio : 0,
-            sequentialCompressionRatio: timeNormalizationMeta ? timeNormalizationMeta.sequentialCompressionRatio : 0,
-            samplingStabilityRatio: timeNormalizationMeta ? timeNormalizationMeta.samplingStabilityRatio : 0,
+            insertionRelativeThreshold: TIME_CLUSTER_ALPHA,
+            sortedClusterCount: timeNormalizationMeta ? timeNormalizationMeta.sortedClusterCount : 0,
+            sequentialClusterCount: timeNormalizationMeta ? timeNormalizationMeta.sequentialClusterCount : 0,
+            sortedClusterCountOverTotalDeltasRatio: timeNormalizationMeta ? timeNormalizationMeta.sortedClusterCountOverTotalDeltasRatio : 0,
+            sequentialClusterCountOverTotalDeltasRatio: timeNormalizationMeta ? timeNormalizationMeta.sequentialClusterCountOverTotalDeltasRatio : 0,
+            sequentialOverSortedClusterCountRatio: timeNormalizationMeta ? timeNormalizationMeta.sequentialOverSortedClusterCountRatio : 0,
             clusters: timeSamplingClusters || []
           },
           normalization: timeNormalizationMeta || null

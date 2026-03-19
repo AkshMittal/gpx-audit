@@ -164,16 +164,16 @@ function auditMotion(points) {
   return {
     audit: {
       motion: {
-        pairCounts: {
+        evaluatedPairs: {
           consecutivePairCount: consecutivePairCount,
-          forwardValidCount: forwardValidCount
+          forwardValidPairCount: forwardValidCount
         },
         rejections: {
-          missingTimestampCount: missingTimestampCount,
-          unparsableTimestampCount: unparsableTimestampCount,
-          nonFiniteDistanceCount: nonFiniteDistanceCount,
-          backwardCount: backwardCount,
-          zeroTimeDeltaCount: zeroTimeDeltaCount,
+          missingTimestampPairCount: missingTimestampCount,
+          unparsableTimestampPairCount: unparsableTimestampCount,
+          nonFiniteDistancePairCount: nonFiniteDistanceCount,
+          backwardTimePairCount: backwardCount,
+          zeroTimeDeltaPairCount: zeroTimeDeltaCount,
           events: {
             missingTimestamp: missingTimestampEvents,
             unparsableTimestamp: unparsableTimestampEvents,
@@ -185,10 +185,10 @@ function auditMotion(points) {
         time: {
           validMotionTimeSeconds: validMotionTimeSeconds,
           invalidTimeSeconds: invalidTimeSeconds,
-          invalidTimeRatio: invalidTimeRatio
+          invalidTimeShareOfEvaluatedTime: invalidTimeRatio
         },
         distance: {
-          totalValidDistanceMeters: totalValidDistanceMeters
+          totalForwardValidDistanceMeters: totalValidDistanceMeters
         },
         speed: {
           meanSpeedMps: meanSpeedMs,

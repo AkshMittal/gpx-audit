@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/AkshMittal/gpx-audit#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
     "csv-parse": "^6.1.0",
     "jsdom": "^28.1.0"
   }

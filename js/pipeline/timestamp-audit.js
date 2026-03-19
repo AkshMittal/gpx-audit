@@ -211,7 +211,7 @@ function auditTimestamps(points) {
               startIndex: currentBlockStartIndex,
               endIndex: currentBlockEndIndex,
               length: currentBlockLength,
-              maxDepthMs: currentBlockMaxDepthMs
+              maxDepthFromAnchorMs: currentBlockMaxDepthMs
             });
           }
           inBlock = false;
@@ -329,7 +329,7 @@ function auditTimestamps(points) {
       startIndex: currentBlockStartIndex,
       endIndex: currentBlockEndIndex,
       length: currentBlockLength,
-      maxDepthMs: currentBlockMaxDepthMs
+      maxDepthFromAnchorMs: currentBlockMaxDepthMs
     });
   }
   
@@ -360,7 +360,7 @@ function auditTimestamps(points) {
   
   // Raw session duration: last valid timestamp - first valid timestamp (in original point order)
   let rawSessionDurationSec = null;
-  if (firstValidTimestampMs !== null && lastValidTimestampMs !== null && lastValidTimestampMs !== firstValidTimestampMs) {
+  if (firstValidTimestampMs !== null && lastValidTimestampMs !== null) {
     rawSessionDurationSec = (lastValidTimestampMs - firstValidTimestampMs) / 1000;
   }
   
@@ -407,44 +407,44 @@ function auditTimestamps(points) {
   const auditMetadata = {
     audit: {
       temporal: {
-        totalPointsChecked: totalPointsChecked,
+        totalPointsEvaluated: totalPointsChecked,
         session: {
           rawSessionDurationSec: rawSessionDurationSec,
-          validParsedTimestampCount: validParsedTimestampCount
+          parseableTimestampPointCount: validParsedTimestampCount
         },
         temporalOrder: {
-          strictlyIncreasingCount: strictlyIncreasingCount,
+          monotonicForwardCount: strictlyIncreasingCount,
           missing: {
-            count: missingTimestampCount,
-            ratio: missingTimestampRatio,
-            largestBlockLength: largestMissingTimestampBlockLength,
+            pointCount: missingTimestampCount,
+            pointCountOverTotalPointsRatio: missingTimestampRatio,
+            maxBlockLength: largestMissingTimestampBlockLength,
             blocks: missingTimestampBlocks,
-            singlePointCount: missingTimestampSinglePointEvents.length,
-            singlePointEvents: missingTimestampSinglePointEvents
+            isolatedPointCount: missingTimestampSinglePointEvents.length,
+            isolatedPointEvents: missingTimestampSinglePointEvents
           },
           unparsable: {
-            count: unparsableTimestampCount,
-            ratio: unparsableTimestampRatio,
-            largestBlockLength: largestUnparsableTimestampBlockLength,
+            pointCount: unparsableTimestampCount,
+            pointCountOverTotalPointsRatio: unparsableTimestampRatio,
+            maxBlockLength: largestUnparsableTimestampBlockLength,
             blocks: unparsableTimestampBlocks,
-            singlePointCount: unparsableTimestampSinglePointEvents.length,
-            singlePointEvents: unparsableTimestampSinglePointEvents
+            isolatedPointCount: unparsableTimestampSinglePointEvents.length,
+            isolatedPointEvents: unparsableTimestampSinglePointEvents
           },
           duplicate: {
-            count: duplicateTimestampCount,
-            ratio: duplicateTimestampRatio,
-            largestBlockLength: largestDuplicateTimestampBlockLength,
+            pointCount: duplicateTimestampCount,
+            pointCountOverTotalPointsRatio: duplicateTimestampRatio,
+            maxBlockLength: largestDuplicateTimestampBlockLength,
             blocks: duplicateTimestampBlocks,
-            singlePointCount: duplicateTimestampSinglePointEvents.length,
-            singlePointEvents: duplicateTimestampSinglePointEvents
+            isolatedPointCount: duplicateTimestampSinglePointEvents.length,
+            isolatedPointEvents: duplicateTimestampSinglePointEvents
           },
           backtracking: {
-            count: totalBacktrackingPoints,
-            maxDepthMs: maxBacktrackingDepthMs,
-            largestBlockLength: largestBacktrackingBlockLength,
+            pointCount: totalBacktrackingPoints,
+            maxDepthFromAnchorMs: maxBacktrackingDepthMs,
+            maxBlockLength: largestBacktrackingBlockLength,
             blocks: backtrackingBlocks,
-            singlePointCount: backtrackingSinglePointEvents.length,
-            singlePointEvents: backtrackingSinglePointEvents
+            isolatedPointCount: backtrackingSinglePointEvents.length,
+            isolatedPointEvents: backtrackingSinglePointEvents
           }
         }
       }

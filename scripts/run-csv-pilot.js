@@ -78,11 +78,11 @@ function loadBrowserModules() {
   global.URL = dom.window.URL;
 
   const moduleFiles = [
-    path.join(ROOT, "js", "gpx-ingestion-module.js"),
-    path.join(ROOT, "js", "timestamp-audit.js"),
-    path.join(ROOT, "js", "sampling-audit.js"),
-    path.join(ROOT, "js", "motion-audit.js"),
-    path.join(ROOT, "js", "audit-export-module.js")
+    path.join(ROOT, "js", "pipeline", "gpx-ingestion-module.js"),
+    path.join(ROOT, "js", "pipeline", "timestamp-audit.js"),
+    path.join(ROOT, "js", "pipeline", "sampling-audit.js"),
+    path.join(ROOT, "js", "pipeline", "motion-audit.js"),
+    path.join(ROOT, "js", "pipeline", "audit-export-module.js")
   ];
 
   for (const filePath of moduleFiles) {
@@ -114,10 +114,10 @@ function getRatios(payload) {
   const temporalOrder = payload.audit && payload.audit.temporal && payload.audit.temporal.temporalOrder;
   const motionTime = payload.audit && payload.audit.motion && payload.audit.motion.time;
   return {
-    missingRatio: temporalOrder && temporalOrder.missing ? temporalOrder.missing.ratio : null,
-    unparsableRatio: temporalOrder && temporalOrder.unparsable ? temporalOrder.unparsable.ratio : null,
-    duplicateRatio: temporalOrder && temporalOrder.duplicate ? temporalOrder.duplicate.ratio : null,
-    invalidTimeRatio: motionTime ? motionTime.invalidTimeRatio : null
+    missingRatio: temporalOrder && temporalOrder.missing ? temporalOrder.missing.pointCountOverTotalPointsRatio : null,
+    unparsableRatio: temporalOrder && temporalOrder.unparsable ? temporalOrder.unparsable.pointCountOverTotalPointsRatio : null,
+    duplicateRatio: temporalOrder && temporalOrder.duplicate ? temporalOrder.duplicate.pointCountOverTotalPointsRatio : null,
+    invalidTimeRatio: motionTime ? motionTime.invalidTimeShareOfEvaluatedTime : null
   };
 }
 

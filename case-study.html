@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPX Audit Case Study Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #1d1917;
+      --panel: #25201d;
+      --panel-2: #2d2723;
+      --line: #4a403a;
+      --text: #e9e0d6;
+      --muted: #bcaea2;
+      --accent: #cfb394;
+      --accent-soft: rgba(207, 179, 148, 0.15);
+      --danger: #cd9999;
+      --ok: #a8bf9e;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body {
+      font-family: "Spline Sans Mono", monospace;
+      letter-spacing: 0.1px;
+      background-image:
+        radial-gradient(circle at 82% 14%, rgba(207, 179, 148, 0.11), transparent 42%),
+        radial-gradient(circle at 14% 80%, rgba(170, 145, 120, 0.12), transparent 36%),
+        linear-gradient(135deg, #1e1a18, #211c19 48%, #221d1a);
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .top {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 14px;
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Fraunces", serif;
+      font-size: clamp(30px, 5.5vw, 56px);
+      line-height: 0.92;
+      font-weight: 500;
+      color: #efe5db;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 80ch;
+      line-height: 1.5;
+    }
+
+    .top-links {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    .top-links a {
+      color: var(--muted);
+      text-decoration: none;
+      border-bottom: 1px solid #6f655d;
+    }
+
+    .top-links a:hover {
+      color: var(--text);
+      border-bottom-color: var(--text);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 310px 1fr 370px;
+      gap: 12px;
+      min-height: 76vh;
+    }
+
+    .panel {
+      background: linear-gradient(170deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      box-shadow: 0 16px 25px rgba(0, 0, 0, 0.24);
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2,
+    .panel-head h3 {
+      margin: 0;
+      font-family: "Fraunces", serif;
+      font-weight: 400;
+      color: #ece1d5;
+    }
+
+    .panel-head h2 { font-size: 30px; }
+    .panel-head h3 { font-size: 24px; }
+
+    .panel-head small {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .filters {
+      padding: 10px;
+      max-height: calc(76vh - 20px);
+      overflow: auto;
+    }
+
+    .filter-category {
+      border: 1px solid var(--line);
+      margin-bottom: 9px;
+      background: #29231f;
+    }
+
+    .cat-toggle {
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-bottom: 1px solid transparent;
+      background: #302924;
+      color: #dfd0c1;
+      padding: 8px 9px;
+      font-family: inherit;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+
+    .cat-toggle:hover { color: var(--accent); }
+    .cat-body { padding: 8px; display: none; }
+    .filter-category.open .cat-body { display: block; }
+    .filter-category.open .cat-toggle { border-bottom-color: var(--line); }
+
+    .field { margin-bottom: 8px; }
+    .field label {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 4px;
+      text-transform: lowercase;
+    }
+
+    input, select {
+      width: 100%;
+      background: #231d1a;
+      color: var(--text);
+      border: 1px solid var(--line);
+      padding: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+    .filter-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(180deg, transparent, #2d2723 26%);
+      padding-top: 8px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #28221f;
+      color: #ddd2c6;
+      padding: 9px 10px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-primary {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: linear-gradient(to right, var(--accent-soft), transparent 74%);
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-height: 0;
+    }
+
+    .preset-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px 0;
+      flex-wrap: wrap;
+    }
+
+    .preset-tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: linear-gradient(to right, var(--accent-soft), transparent 70%);
+    }
+
+    .active-filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px;
+      min-height: 36px;
+    }
+
+    .chip {
+      font-size: 10px;
+      border: 1px solid #6f6257;
+      color: #dfd0bf;
+      padding: 3px 6px;
+      background: #2e2722;
+    }
+
+    .table-wrap {
+      min-height: 0;
+      overflow: auto;
+      padding: 0 10px 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      min-width: 760px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #2c2622;
+      color: var(--muted);
+      font-weight: 500;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 7px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th.sortable { cursor: pointer; }
+    th.sortable:hover { color: var(--text); }
+    tbody td {
+      border-bottom: 1px solid #433932;
+      padding: 8px 7px;
+      white-space: nowrap;
+    }
+
+    tbody tr { cursor: pointer; transition: background 120ms ease; }
+    tbody tr:hover { background: rgba(207, 179, 148, 0.09); }
+    tbody tr.selected { background: rgba(207, 179, 148, 0.15); box-shadow: inset 3px 0 0 var(--accent); }
+
+    .table-footer {
+      padding: 8px 10px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .pager-controls { display: flex; align-items: center; gap: 6px; }
+    .compact-select { width: auto; min-width: 80px; }
+
+    .detail-body {
+      padding: 10px;
+      max-height: calc(76vh - 20px);
+      overflow: auto;
+      font-size: 12px;
+    }
+
+    .detail-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 12px;
+      border: 1px dashed #6f6154;
+      background: #2b2521;
+    }
+
+    .detail-section {
+      border: 1px solid var(--line);
+      margin-bottom: 9px;
+      background: #2a2420;
+    }
+
+    .detail-section h4 {
+      margin: 0;
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--line);
+      color: #e3d6c8;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 500;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 8px;
+      padding: 8px;
+    }
+
+    .kv {
+      border: 1px solid #544840;
+      padding: 6px;
+      background: #312a25;
+    }
+    .kv .k { color: var(--muted); font-size: 10px; margin-bottom: 4px; text-transform: lowercase; }
+    .kv .v { color: var(--text); font-size: 12px; }
+
+    .artifact-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      padding: 8px;
+    }
+
+    .status-line {
+      padding: 7px 10px;
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+      color: var(--muted);
+      min-height: 34px;
+    }
+
+    .status-line.error { color: #f0a9a9; }
+
+    .modal {
+      position: fixed;
+      inset: 18px;
+      background: linear-gradient(180deg, #2a2420, #332b26);
+      border: 1px solid #594d44;
+      box-shadow: 0 24px 34px rgba(0, 0, 0, 0.36);
+      z-index: 40;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px) scale(0.99);
+      transition: transform 180ms ease, opacity 180ms ease;
+    }
+    .modal.open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h3 {
+      margin: 0;
+      font-size: 14px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 500;
+    }
+
+    .inspector-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .inspector-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: 0;
+    }
+
+    .anomaly-list {
+      border-right: 1px solid var(--line);
+      padding: 8px;
+      overflow: auto;
+    }
+
+    .anomaly-item {
+      border: 1px solid #5a4d44;
+      padding: 7px;
+      background: #2d2621;
+      margin-bottom: 7px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .anomaly-item:hover { border-color: var(--accent); }
+    .anomaly-item.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-soft); }
+    .anomaly-item strong { display: block; color: #eadac7; margin-bottom: 3px; }
+    .anomaly-item code { color: #d7cabd; font-size: 10px; }
+
+    .json-view {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      font-size: 11px;
+      line-height: 1.46;
+      color: #ddd2c7;
+      white-space: pre;
+      font-family: "Spline Sans Mono", monospace;
+      background: #271f1b;
+    }
+    .json-highlight {
+      background: rgba(207, 179, 148, 0.33);
+      color: #fff;
+      border-radius: 2px;
+    }
+
+    @media (max-width: 1350px) {
+      .workspace { grid-template-columns: 300px 1fr; }
+      .detail { grid-column: 1 / -1; }
+    }
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .top { flex-direction: column; align-items: flex-start; }
+      .modal { inset: 8px; }
+      .inspector-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div>
+        <h1 class="title">Case Study Explorer</h1>
+        <div class="subtitle">
+          Read-only, queryable Phase 1 surface for ingestion/temporal/sampling/motion analytics with storage-backed deep inspection.
+        </div>
+      </div>
+      <div class="top-links">
+        <a href="index.html">single-gpx workbench ↗</a>
+        <a href="visualization-notes.html" target="_blank" rel="noopener">visualization notes ↗</a>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="panel">
+        <div class="panel-head">
+          <h3>Filters</h3>
+          <small id="activeFilterCount">0 active</small>
+        </div>
+        <div class="filters" id="filterContainer"></div>
+      </aside>
+
+      <section class="panel main">
+        <div class="panel-head">
+          <h2>Track Ledger</h2>
+          <small id="resultCountLabel">0 tracks</small>
+        </div>
+        <div class="preset-tabs" id="presetTabs"></div>
+        <div class="active-filter-chips" id="activeFilterChips"></div>
+        <div class="table-wrap">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <div id="pageMeta">page 1</div>
+          <div class="pager-controls">
+            <button type="button" id="prevPageBtn">Prev</button>
+            <button type="button" id="nextPageBtn">Next</button>
+            <select class="compact-select" id="pageSizeSelect">
+              <option value="25">25 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel detail" id="detailPanel">
+        <div class="panel-head">
+          <h3>Track Detail</h3>
+          <small id="selectedTrackLabel">none selected</small>
+        </div>
+        <div class="detail-body" id="detailBody">
+          <div class="detail-empty">Select a track row to inspect full per-track detail.</div>
+        </div>
+        <div class="status-line" id="detailStatus"></div>
+      </aside>
+    </section>
+  </main>
+
+  <section class="modal" id="inspectorModal" aria-label="deep inspector">
+    <div class="modal-head">
+      <h3>Deep Inspector (Storage Audit JSON)</h3>
+      <button type="button" id="closeInspectorBtn">Close</button>
+    </div>
+    <div class="inspector-toolbar">
+      <select id="anomalyTypeSelect"></select>
+      <button type="button" id="prevAnomalyBtn">Prev anomaly</button>
+      <button type="button" id="nextAnomalyBtn">Next anomaly</button>
+      <button type="button" id="copyPathBtn">Copy path</button>
+      <span id="inspectorSummary" class="chip">0 anomalies</span>
+    </div>
+    <div class="inspector-grid">
+      <div class="anomaly-list" id="anomalyList"></div>
+      <pre class="json-view" id="jsonView"></pre>
+    </div>
+  </section>
+
+  <script>
+    // Use Supabase URL + PUBLISHABLE key only. Never place service role key in frontend code.
+    window.CASE_STUDY_CONFIG = {
+      supabaseUrl: "https://azbtqxxsifqqaeobfhiw.supabase.co",
+      supabaseAnonKey: "sb_publishable_yNyzcGBQuruAW2y2Lp2_Iw_DywvGeFL",
+      pageSize: 25
+    };
+  </script>
+  <script type="module" src="js/frontend/case-study-ui.js"></script>
+</body>
+</html>
