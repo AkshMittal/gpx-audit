@@ -83,289 +83,224 @@ function listAuditFilesInDir(dirPath) {
 
 function inferTrackUid(filePath, payload) {
   const fileName = path.basename(filePath);
-  const nameMatch = fileName.match(/^\d+_([^.]+)\.audit\.json$/i);
+  const nameMatch = fileName.match(/^\d+_([^.]+)\.audit(?:\.v2)?\.json$/i);
   if (nameMatch) return nameMatch[1];
+  const uidOnlyMatch = fileName.match(/^([^.]+)\.audit(?:\.v2)?\.json$/i);
+  if (uidOnlyMatch) return uidOnlyMatch[1];
 
   const sourceFileName = get(payload, "metadata.source.fileName");
   if (typeof sourceFileName === "string" && sourceFileName.length > 0) {
     return sourceFileName.replace(/\.gpx$/i, "");
   }
 
-  return fileName.replace(/\.audit\.json$/i, "");
+  return fileName.replace(/\.audit(?:\.v2)?\.json$/i, "");
 }
 
-function inferSourceRowNumber(filePath) {
-  const fileName = path.basename(filePath);
-  const seqMatch = fileName.match(/^(\d+)_/);
-  if (!seqMatch) return null;
-  return toIntOrNull(seqMatch[1]);
+function sha256(rawText) {
+  return crypto.createHash("sha256").update(rawText, "utf8").digest("hex");
 }
 
-function buildRowsFromAudit(payload, filePath, options) {
+function assertRatioInRange(value, fieldName) {
+  if (value === null || value === undefined) return;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`Out-of-range ratio for ${fieldName}: ${value}`);
+  }
+}
+
+function buildRowsFromAudit(payload, filePath, auditRawText) {
   const ingestion = get(payload, "audit.ingestion", {});
   const temporal = get(payload, "audit.temporal", {});
   const temporalOrder = get(temporal, "temporalOrder", {});
   const sampling = get(payload, "audit.sampling", {});
+  const samplingTime = get(sampling, "time", {});
+  const samplingDistance = get(sampling, "distance", {});
   const motion = get(payload, "audit.motion", {});
+  const motionRejections = get(motion, "rejections", {});
 
   const trackUid = inferTrackUid(filePath, payload);
-  const sourceRowNumber = inferSourceRowNumber(filePath);
-  const schemaVersion =
-    get(payload, "metadata.schemaVersion") || options.defaultSchemaVersion;
+  const schemaVersion = get(payload, "metadata.schemaVersion");
+  if (schemaVersion !== "2.0.0") {
+    throw new Error(`Unsupported schemaVersion=${schemaVersion} (expected 2.0.0)`);
+  }
 
-  const totalPointCount = toIntOrNull(get(ingestion, "counts.totalPointCount", 0)) ?? 0;
-  const validPointCount = toIntOrNull(get(ingestion, "counts.validPointCount", 0)) ?? 0;
-  const rejectedPointCount =
-    toIntOrNull(get(ingestion, "counts.rejectedPointCount", 0)) ?? 0;
+  const missingRatio = toNumberOrNull(get(temporalOrder, "missing.pointCountOverTotalPointsRatio"));
+  const unparsableRatio = toNumberOrNull(
+    get(temporalOrder, "unparsable.pointCountOverTotalPointsRatio")
+  );
+  const duplicateRatio = toNumberOrNull(get(temporalOrder, "duplicate.pointCountOverTotalPointsRatio"));
+  const invalidTimeRatio = toNumberOrNull(get(motion, "time.invalidTimeShareOfEvaluatedTime"));
+  const sortedClusterRatio = toNumberOrNull(
+    get(samplingTime, "clustering.sortedClusterCountOverTotalDeltasRatio")
+  );
+  const sequentialClusterRatio = toNumberOrNull(
+    get(samplingTime, "clustering.sequentialClusterCountOverTotalDeltasRatio")
+  );
+
+  assertRatioInRange(missingRatio, "temporal.missing.pointCountOverTotalPointsRatio");
+  assertRatioInRange(unparsableRatio, "temporal.unparsable.pointCountOverTotalPointsRatio");
+  assertRatioInRange(duplicateRatio, "temporal.duplicate.pointCountOverTotalPointsRatio");
+  assertRatioInRange(invalidTimeRatio, "motion.time.invalidTimeShareOfEvaluatedTime");
+  assertRatioInRange(
+    sortedClusterRatio,
+    "sampling.time.clustering.sortedClusterCountOverTotalDeltasRatio"
+  );
+  assertRatioInRange(
+    sequentialClusterRatio,
+    "sampling.time.clustering.sequentialClusterCountOverTotalDeltasRatio"
+  );
 
   const trackRow = {
     track_uid: trackUid,
-    source_dataset: options.sourceDataset,
-    source_row_number: sourceRowNumber,
     schema_version: schemaVersion,
-    total_point_count: totalPointCount,
-    valid_point_count: validPointCount,
-    rejected_point_count: rejectedPointCount,
-    has_multiple_point_types: toBool(
-      get(ingestion, "context.hasMultiplePointTypes", false),
-      false
-    ),
-    has_any_timestamps: toBool(get(ingestion, "context.hasAnyTimestamps", false), false),
+    generated_at_utc: get(payload, "metadata.generatedAtUtc", null),
+    source_file_name: get(payload, "metadata.source.fileName", null),
+    summary_total_point_count: toIntOrNull(get(payload, "metadata.summary.totalPointCount", 0)) ?? 0,
+    audit_detail_path: path.relative(process.cwd(), filePath).replace(/\\/g, "/"),
+    audit_detail_hash: sha256(auditRawText),
     raw_gpx_path: null,
-    audit_detail_path: path.relative(process.cwd(), filePath).replaceAll("\\", "/"),
     raw_gpx_hash: null,
-    audit_detail_hash: crypto
-      .createHash("sha256")
-      .update(JSON.stringify(payload))
-      .digest("hex"),
   };
 
-  const temporalValidParsedCount =
-    toIntOrNull(get(temporal, "session.validParsedTimestampCount", 0)) ?? 0;
-  const hasTemporalComparisonContext = temporalValidParsedCount >= 2;
-
-  const missing = get(temporalOrder, "missing", {});
-  const unparsable = get(temporalOrder, "unparsable", {});
-  const duplicate = get(temporalOrder, "duplicate", {});
-  const backtracking = get(temporalOrder, "backtracking", {});
-
-  const missingBlockCount = Array.isArray(missing.blocks) ? missing.blocks.length : 0;
-  const unparsableBlockCount = Array.isArray(unparsable.blocks)
-    ? unparsable.blocks.length
-    : 0;
-  const duplicateBlockCount = Array.isArray(duplicate.blocks)
-    ? duplicate.blocks.length
-    : null;
-  const backtrackingBlockCount = Array.isArray(backtracking.blocks)
-    ? backtracking.blocks.length
-    : null;
+  const ingestionRow = {
+    total_point_count: toIntOrNull(get(ingestion, "counts.totalPointCount", 0)) ?? 0,
+    valid_point_count: toIntOrNull(get(ingestion, "counts.validPointCount", 0)) ?? 0,
+    rejected_point_count: toIntOrNull(get(ingestion, "counts.rejectedPointCount", 0)) ?? 0,
+    point_type_wpt_count: toIntOrNull(get(ingestion, "counts.pointTypeCounts.wpt", 0)) ?? 0,
+    point_type_rtept_count: toIntOrNull(get(ingestion, "counts.pointTypeCounts.rtept", 0)) ?? 0,
+    point_type_trkpt_count: toIntOrNull(get(ingestion, "counts.pointTypeCounts.trkpt", 0)) ?? 0,
+    has_multiple_point_types: toBool(get(ingestion, "context.hasMultiplePointTypes", false), false),
+    has_any_timestamp_values: toBool(get(ingestion, "context.hasAnyTimestampValues", false), false),
+  };
 
   const temporalRow = {
-    total_points_checked: toIntOrNull(get(temporal, "totalPointsChecked", 0)) ?? 0,
-    valid_parsed_timestamp_count: temporalValidParsedCount,
-    has_temporal_comparison_context: hasTemporalComparisonContext,
+    total_points_evaluated: toIntOrNull(get(temporal, "totalPointsEvaluated", 0)) ?? 0,
     raw_session_duration_sec: toNumberOrNull(get(temporal, "session.rawSessionDurationSec")),
-    strictly_increasing_count: hasTemporalComparisonContext
-      ? toIntOrNull(get(temporalOrder, "strictlyIncreasingCount", 0)) ?? 0
-      : null,
+    parseable_timestamp_point_count:
+      toIntOrNull(get(temporal, "session.parseableTimestampPointCount", 0)) ?? 0,
+    monotonic_forward_count: toIntOrNull(get(temporalOrder, "monotonicForwardCount", 0)) ?? 0,
 
-    missing_count: toIntOrNull(get(missing, "count", 0)) ?? 0,
-    missing_ratio: toNumberOrNull(get(missing, "ratio", 0)) ?? 0,
-    missing_largest_block_length: toIntOrNull(get(missing, "largestBlockLength", 0)) ?? 0,
-    missing_block_count: missingBlockCount,
-    missing_single_point_count: toIntOrNull(get(missing, "singlePointCount", 0)) ?? 0,
+    missing_point_count: toIntOrNull(get(temporalOrder, "missing.pointCount", 0)) ?? 0,
+    missing_point_count_over_total_points_ratio: missingRatio ?? 0,
+    missing_max_block_length: toIntOrNull(get(temporalOrder, "missing.maxBlockLength", 0)) ?? 0,
+    missing_isolated_point_count:
+      toIntOrNull(get(temporalOrder, "missing.isolatedPointCount", 0)) ?? 0,
 
-    unparsable_count: toIntOrNull(get(unparsable, "count", 0)) ?? 0,
-    unparsable_ratio: toNumberOrNull(get(unparsable, "ratio", 0)) ?? 0,
-    unparsable_largest_block_length:
-      toIntOrNull(get(unparsable, "largestBlockLength", 0)) ?? 0,
-    unparsable_block_count: unparsableBlockCount,
-    unparsable_single_point_count: toIntOrNull(get(unparsable, "singlePointCount", 0)) ?? 0,
+    unparsable_point_count: toIntOrNull(get(temporalOrder, "unparsable.pointCount", 0)) ?? 0,
+    unparsable_point_count_over_total_points_ratio: unparsableRatio ?? 0,
+    unparsable_max_block_length:
+      toIntOrNull(get(temporalOrder, "unparsable.maxBlockLength", 0)) ?? 0,
+    unparsable_isolated_point_count:
+      toIntOrNull(get(temporalOrder, "unparsable.isolatedPointCount", 0)) ?? 0,
 
-    duplicate_count: hasTemporalComparisonContext
-      ? toIntOrNull(get(duplicate, "count", 0)) ?? 0
-      : null,
-    duplicate_ratio: hasTemporalComparisonContext
-      ? toNumberOrNull(get(duplicate, "ratio", 0)) ?? 0
-      : null,
-    duplicate_largest_block_length: hasTemporalComparisonContext
-      ? toIntOrNull(get(duplicate, "largestBlockLength", 0)) ?? 0
-      : null,
-    duplicate_block_count: hasTemporalComparisonContext
-      ? duplicateBlockCount ?? 0
-      : null,
-    duplicate_single_point_count: hasTemporalComparisonContext
-      ? toIntOrNull(get(duplicate, "singlePointCount", 0)) ?? 0
-      : null,
+    duplicate_point_count: toIntOrNull(get(temporalOrder, "duplicate.pointCount", 0)) ?? 0,
+    duplicate_point_count_over_total_points_ratio: duplicateRatio ?? 0,
+    duplicate_max_block_length: toIntOrNull(get(temporalOrder, "duplicate.maxBlockLength", 0)) ?? 0,
+    duplicate_isolated_point_count:
+      toIntOrNull(get(temporalOrder, "duplicate.isolatedPointCount", 0)) ?? 0,
 
-    backtracking_count: hasTemporalComparisonContext
-      ? toIntOrNull(get(backtracking, "count", 0)) ?? 0
-      : null,
-    backtracking_max_depth_ms: hasTemporalComparisonContext
-      ? toNumberOrNull(get(backtracking, "maxDepthMs"))
-      : null,
-    backtracking_largest_block_length: hasTemporalComparisonContext
-      ? toIntOrNull(get(backtracking, "largestBlockLength", 0)) ?? 0
-      : null,
-    backtracking_block_count: hasTemporalComparisonContext
-      ? backtrackingBlockCount ?? 0
-      : null,
-    backtracking_single_point_count: hasTemporalComparisonContext
-      ? toIntOrNull(get(backtracking, "singlePointCount", 0)) ?? 0
-      : null,
+    backtracking_point_count:
+      toIntOrNull(get(temporalOrder, "backtracking.pointCount", 0)) ?? 0,
+    backtracking_max_depth_from_anchor_ms:
+      toIntOrNull(get(temporalOrder, "backtracking.maxDepthFromAnchorMs")),
+    backtracking_max_block_length:
+      toIntOrNull(get(temporalOrder, "backtracking.maxBlockLength", 0)) ?? 0,
+    backtracking_isolated_point_count:
+      toIntOrNull(get(temporalOrder, "backtracking.isolatedPointCount", 0)) ?? 0,
   };
 
-  temporalRow.has_any_temporal_anomaly =
-    temporalRow.missing_count > 0 ||
-    temporalRow.unparsable_count > 0 ||
-    (temporalRow.duplicate_count ?? 0) > 0 ||
-    (temporalRow.backtracking_count ?? 0) > 0;
-
-  temporalRow.has_any_temporal_block =
-    temporalRow.missing_block_count > 0 ||
-    temporalRow.unparsable_block_count > 0 ||
-    (temporalRow.duplicate_block_count ?? 0) > 0 ||
-    (temporalRow.backtracking_block_count ?? 0) > 0;
-
-  temporalRow.has_any_temporal_single_point =
-    temporalRow.missing_single_point_count > 0 ||
-    temporalRow.unparsable_single_point_count > 0 ||
-    (temporalRow.duplicate_single_point_count ?? 0) > 0 ||
-    (temporalRow.backtracking_single_point_count ?? 0) > 0;
-
-  const samplingTime = get(sampling, "time", {});
-  const timestampContext = get(samplingTime, "timestampContext", {});
-  const deltaStats = get(samplingTime, "deltaStatistics", {});
-  const clustering = get(samplingTime, "clustering", {});
-  const normalization = get(samplingTime, "normalization", {});
-  const distance = get(sampling, "distance", {});
-
-  const timestampPairsCount =
-    toIntOrNull(get(timestampContext, "consecutiveTimestampPairsCount", 0)) ?? 0;
-  const positiveDeltasCount =
-    toIntOrNull(get(timestampContext, "positiveTimeDeltasCollected", 0)) ?? 0;
-  const hasPositiveDeltaContext = positiveDeltasCount > 0;
+  const normalization = get(samplingTime, "normalization", null);
 
   const samplingRow = {
-    has_valid_timestamps: toBool(get(timestampContext, "hasValidTimestamps", false), false),
-    has_time_progression: toBool(get(timestampContext, "hasTimeProgression", false), false),
+    has_any_parseable_timestamp: toBool(
+      get(samplingTime, "timestampContext.hasAnyParseableTimestamp", false),
+      false
+    ),
+    has_any_positive_time_delta: toBool(
+      get(samplingTime, "timestampContext.hasAnyPositiveTimeDelta", false),
+      false
+    ),
     timestamped_points_count:
-      toIntOrNull(get(timestampContext, "timestampedPointsCount", 0)) ?? 0,
-    consecutive_timestamp_pairs_count: timestampPairsCount,
-    positive_time_deltas_collected: positiveDeltasCount,
-    non_positive_time_delta_count:
-      timestampPairsCount > 0
-        ? toIntOrNull(
-            get(timestampContext, "rejections.nonPositiveTimeDelta.count", 0)
-          ) ?? 0
-        : null,
+      toIntOrNull(get(samplingTime, "timestampContext.timestampedPointsCount", 0)) ?? 0,
+    consecutive_timestamp_pairs_count:
+      toIntOrNull(get(samplingTime, "timestampContext.consecutiveTimestampPairsCount", 0)) ?? 0,
+    positive_time_delta_count:
+      toIntOrNull(get(samplingTime, "timestampContext.positiveTimeDeltaCount", 0)) ?? 0,
+    non_positive_time_delta_pair_count:
+      toIntOrNull(
+        get(
+          samplingTime,
+          "timestampContext.rejections.nonPositiveTimeDeltaPairs.nonPositivePairCount",
+          0
+        )
+      ) ?? 0,
 
-    delta_count: hasPositiveDeltaContext ? toIntOrNull(get(deltaStats, "count", 0)) ?? 0 : null,
-    delta_min_ms: hasPositiveDeltaContext ? toNumberOrNull(get(deltaStats, "minMs")) : null,
-    delta_median_ms: hasPositiveDeltaContext
-      ? toNumberOrNull(get(deltaStats, "medianMs"))
-      : null,
-    delta_max_ms: hasPositiveDeltaContext ? toNumberOrNull(get(deltaStats, "maxMs")) : null,
+    positive_delta_count: toIntOrNull(get(samplingTime, "deltaStatistics.positiveDeltaCount", 0)) ?? 0,
+    delta_min_ms: toNumberOrNull(get(samplingTime, "deltaStatistics.minMs")),
+    delta_max_ms: toNumberOrNull(get(samplingTime, "deltaStatistics.maxMs")),
+    delta_median_ms: toNumberOrNull(get(samplingTime, "deltaStatistics.medianMs")),
 
-    cluster_count_sorted: hasPositiveDeltaContext
-      ? toIntOrNull(get(clustering, "clusterCountSorted"))
-      : null,
-    cluster_count_sequential: hasPositiveDeltaContext
-      ? toIntOrNull(get(clustering, "clusterCountSequential"))
-      : null,
-    sorted_compression_ratio: hasPositiveDeltaContext
-      ? toNumberOrNull(get(normalization, "sortedCompressionRatio"))
-      : null,
-    sequential_compression_ratio: hasPositiveDeltaContext
-      ? toNumberOrNull(get(normalization, "sequentialCompressionRatio"))
-      : null,
-    sampling_stability_ratio: hasPositiveDeltaContext
-      ? toNumberOrNull(get(normalization, "samplingStabilityRatio"))
-      : null,
-    global_final_mean_relative_deviation: hasPositiveDeltaContext
-      ? toNumberOrNull(get(normalization, "globalFinalMeanRelativeDeviation"))
-      : null,
-    global_final_max_relative_deviation: hasPositiveDeltaContext
-      ? toNumberOrNull(get(normalization, "globalFinalMaxRelativeDeviation"))
-      : null,
+    insertion_relative_threshold: toNumberOrNull(
+      get(samplingTime, "clustering.insertionRelativeThreshold")
+    ),
+    sorted_cluster_count: toIntOrNull(get(samplingTime, "clustering.sortedClusterCount", 0)) ?? 0,
+    sequential_cluster_count:
+      toIntOrNull(get(samplingTime, "clustering.sequentialClusterCount", 0)) ?? 0,
+    sorted_cluster_count_over_total_deltas_ratio: sortedClusterRatio ?? 0,
+    sequential_cluster_count_over_total_deltas_ratio: sequentialClusterRatio ?? 0,
+    sequential_over_sorted_cluster_count_ratio:
+      toNumberOrNull(get(samplingTime, "clustering.sequentialOverSortedClusterCountRatio")) ?? 0,
 
-    distance_pair_consecutive_count:
-      toIntOrNull(get(distance, "pairInspection.consecutivePairCount", 0)) ?? 0,
-    distance_invalid_count:
-      toIntOrNull(get(distance, "pairInspection.rejections.invalidDistance.count", 0)) ?? 0,
-    distance_geometry_only_delta_count:
-      toIntOrNull(get(distance, "geometryOnly.deltaCount", 0)) ?? 0,
-    distance_time_conditioned_delta_count:
-      timestampPairsCount > 0
-        ? toIntOrNull(get(distance, "timeConditioned.deltaCount", 0)) ?? 0
-        : null,
+    mean_final_absolute_deviation_sec: toNumberOrNull(
+      get(normalization, "meanFinalAbsoluteDeviationSec")
+    ),
+    max_final_absolute_deviation_sec: toNumberOrNull(
+      get(normalization, "maxFinalAbsoluteDeviationSec")
+    ),
+    mean_final_relative_deviation: toNumberOrNull(get(normalization, "meanFinalRelativeDeviation")),
+    max_final_relative_deviation: toNumberOrNull(get(normalization, "maxFinalRelativeDeviation")),
+    non_zero_final_deviation_count: toIntOrNull(get(normalization, "nonZeroFinalDeviationCount")),
+    zero_final_deviation_count: toIntOrNull(get(normalization, "zeroFinalDeviationCount")),
+
+    distance_consecutive_pair_count:
+      toIntOrNull(get(samplingDistance, "pairInspection.consecutivePairCount", 0)) ?? 0,
+    distance_invalid_distance_rejection_count:
+      toIntOrNull(get(samplingDistance, "pairInspection.rejections.invalidDistance.count", 0)) ?? 0,
+    geometry_only_delta_count:
+      toIntOrNull(get(samplingDistance, "geometryOnly.deltaCount", 0)) ?? 0,
+    time_conditioned_delta_count:
+      toIntOrNull(get(samplingDistance, "timeConditioned.deltaCount", 0)) ?? 0,
   };
-
-  const motionPairCounts = get(motion, "pairCounts", {});
-  const motionRejections = get(motion, "rejections", {});
-  const motionTime = get(motion, "time", {});
-  const motionDistance = get(motion, "distance", {});
-  const motionSpeed = get(motion, "speed", {});
-
-  const consecutivePairCount =
-    toIntOrNull(get(motionPairCounts, "consecutivePairCount", 0)) ?? 0;
-  const hasMotionTimeContext = hasTemporalComparisonContext && consecutivePairCount > 0;
 
   const motionRow = {
-    has_motion_time_context: hasMotionTimeContext,
-    consecutive_pair_count: consecutivePairCount,
+    consecutive_pair_count:
+      toIntOrNull(get(motion, "evaluatedPairs.consecutivePairCount", 0)) ?? 0,
+    forward_valid_pair_count:
+      toIntOrNull(get(motion, "evaluatedPairs.forwardValidPairCount", 0)) ?? 0,
 
-    forward_valid_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionPairCounts, "forwardValidCount", 0)) ?? 0
-      : null,
-    missing_timestamp_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionRejections, "missingTimestampCount", 0)) ?? 0
-      : null,
-    unparsable_timestamp_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionRejections, "unparsableTimestampCount", 0)) ?? 0
-      : null,
-    non_finite_distance_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionRejections, "nonFiniteDistanceCount", 0)) ?? 0
-      : null,
-    backward_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionRejections, "backwardCount", 0)) ?? 0
-      : null,
-    zero_time_delta_count: hasMotionTimeContext
-      ? toIntOrNull(get(motionRejections, "zeroTimeDeltaCount", 0)) ?? 0
-      : null,
+    missing_timestamp_pair_count:
+      toIntOrNull(get(motionRejections, "missingTimestampPairCount", 0)) ?? 0,
+    unparsable_timestamp_pair_count:
+      toIntOrNull(get(motionRejections, "unparsableTimestampPairCount", 0)) ?? 0,
+    non_finite_distance_pair_count:
+      toIntOrNull(get(motionRejections, "nonFiniteDistancePairCount", 0)) ?? 0,
+    backward_time_pair_count:
+      toIntOrNull(get(motionRejections, "backwardTimePairCount", 0)) ?? 0,
+    zero_time_delta_pair_count:
+      toIntOrNull(get(motionRejections, "zeroTimeDeltaPairCount", 0)) ?? 0,
 
-    valid_motion_time_seconds: hasMotionTimeContext
-      ? toNumberOrNull(get(motionTime, "validMotionTimeSeconds", 0)) ?? 0
-      : null,
-    invalid_time_seconds: hasMotionTimeContext
-      ? toNumberOrNull(get(motionTime, "invalidTimeSeconds", 0)) ?? 0
-      : null,
-    invalid_time_ratio: hasMotionTimeContext
-      ? toNumberOrNull(get(motionTime, "invalidTimeRatio", 0)) ?? 0
-      : null,
+    valid_motion_time_seconds:
+      toNumberOrNull(get(motion, "time.validMotionTimeSeconds")) ?? 0,
+    invalid_time_seconds: toNumberOrNull(get(motion, "time.invalidTimeSeconds")) ?? 0,
+    invalid_time_share_of_evaluated_time: invalidTimeRatio ?? 0,
 
-    total_valid_distance_meters: hasMotionTimeContext
-      ? toNumberOrNull(get(motionDistance, "totalValidDistanceMeters"))
-      : null,
-    mean_speed_mps: hasMotionTimeContext ? toNumberOrNull(get(motionSpeed, "meanSpeedMps")) : null,
-    median_speed_mps: hasMotionTimeContext
-      ? toNumberOrNull(get(motionSpeed, "medianSpeedMps"))
-      : null,
-    max_speed_mps: hasMotionTimeContext ? toNumberOrNull(get(motionSpeed, "maxSpeedMps")) : null,
+    total_forward_valid_distance_meters:
+      toNumberOrNull(get(motion, "distance.totalForwardValidDistanceMeters")) ?? 0,
+    mean_speed_mps: toNumberOrNull(get(motion, "speed.meanSpeedMps")),
+    median_speed_mps: toNumberOrNull(get(motion, "speed.medianSpeedMps")),
+    max_speed_mps: toNumberOrNull(get(motion, "speed.maxSpeedMps")),
   };
 
-  if (!hasMotionTimeContext) {
-    motionRow.has_any_motion_rejection = null;
-  } else {
-    motionRow.has_any_motion_rejection =
-      (motionRow.missing_timestamp_count ?? 0) > 0 ||
-      (motionRow.unparsable_timestamp_count ?? 0) > 0 ||
-      (motionRow.non_finite_distance_count ?? 0) > 0 ||
-      (motionRow.backward_count ?? 0) > 0 ||
-      (motionRow.zero_time_delta_count ?? 0) > 0;
-  }
-
-  return { trackRow, temporalRow, samplingRow, motionRow };
+  return { trackRow, ingestionRow, temporalRow, samplingRow, motionRow };
 }
 
 function assertEnvForWrite() {
@@ -391,9 +326,17 @@ async function upsertMappedRows(supabase, rows) {
   }
 
   const trackId = trackUpsert.id;
+  const ingestionRow = { track_id: trackId, ...rows.ingestionRow };
   const temporalRow = { track_id: trackId, ...rows.temporalRow };
   const samplingRow = { track_id: trackId, ...rows.samplingRow };
   const motionRow = { track_id: trackId, ...rows.motionRow };
+
+  const { error: ingestionError } = await supabase
+    .from("ingestion_metrics")
+    .upsert(ingestionRow, { onConflict: "track_id" });
+  if (ingestionError) {
+    throw new Error(`ingestion_metrics upsert failed: ${ingestionError.message}`);
+  }
 
   const { error: temporalError } = await supabase
     .from("temporal_metrics")
@@ -423,6 +366,7 @@ function printDryRunPreview(filePath, rows) {
   const preview = {
     file: path.relative(process.cwd(), filePath).replaceAll("\\", "/"),
     tracks: rows.trackRow,
+    ingestion_metrics: rows.ingestionRow,
     temporal_metrics: rows.temporalRow,
     sampling_metrics: rows.samplingRow,
     motion_metrics: rows.motionRow,
@@ -435,8 +379,6 @@ async function main() {
   parseDotEnv(path.resolve(process.cwd(), ".env"));
 
   const isDryRun = Boolean(args["dry-run"]);
-  const sourceDataset = args["source-dataset"] || "hikr_12k";
-  const defaultSchemaVersion = args["default-schema-version"] || "1.0.0";
   const limit = args.limit ? Math.max(0, Number(args.limit)) : null;
   const offset = args.offset ? Math.max(0, Number(args.offset)) : 0;
 
@@ -464,7 +406,6 @@ async function main() {
     return;
   }
 
-  const options = { sourceDataset, defaultSchemaVersion };
   let supabase = null;
   if (!isDryRun) {
     const { url, serviceRole } = assertEnvForWrite();
@@ -477,7 +418,7 @@ async function main() {
     try {
       const raw = fs.readFileSync(filePath, "utf8");
       const payload = JSON.parse(raw);
-      const rows = buildRowsFromAudit(payload, filePath, options);
+      const rows = buildRowsFromAudit(payload, filePath, raw);
 
       if (isDryRun) {
         printDryRunPreview(filePath, rows);

@@ -9,11 +9,13 @@ const CSV_PATH = path.join(ROOT, "datasets", "raw", "gpx-tracks-from-hikr.org.cs
 
 function parseCliArgs() {
   const args = process.argv.slice(2);
-  let limit = 10;
+  let limit = Number.MAX_SAFE_INTEGER;
   let runName = "csv-pilot-10";
   let minTotalPoints = 0;
   let offset = 0;
   let injectTestDuplicates = false;
+  let phase = "combined";
+  let parsedDir = null;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -31,6 +33,12 @@ function parseCliArgs() {
       i++;
     } else if (arg === "--inject-test-duplicates") {
       injectTestDuplicates = true;
+    } else if (arg === "--phase" && args[i + 1]) {
+      phase = String(args[i + 1]).trim().toLowerCase();
+      i++;
+    } else if (arg === "--parsed-dir" && args[i + 1]) {
+      parsedDir = args[i + 1];
+      i++;
     }
   }
 
@@ -43,8 +51,11 @@ function parseCliArgs() {
   if (!Number.isFinite(offset) || offset < 0) {
     throw new Error(`Invalid --offset value: ${offset}`);
   }
+  if (!["combined", "parse", "generate"].includes(phase)) {
+    throw new Error(`Invalid --phase value: ${phase}. Use combined|parse|generate`);
+  }
 
-  return { limit, runName, minTotalPoints, offset, injectTestDuplicates };
+  return { limit, runName, minTotalPoints, offset, injectTestDuplicates, phase, parsedDir };
 }
 
 function ensureDir(dirPath) {
@@ -158,22 +169,29 @@ function createGpxRowParser(csvPath) {
   return { stream, parser };
 }
 
-function writeSummary(results, summaryPath, limit, runName, minTotalPoints, offset, injectTestDuplicates) {
+function writeSummary(results, summaryPath, options) {
+  const { limit, runName, minTotalPoints, offset, injectTestDuplicates, phase } = options;
   const lines = [];
-  const ok = results.filter((r) => r.status === "PASS").length;
+  const ok = results.filter((r) => r.status === "PASS" || r.status === "PARSED").length;
+  const parsed = results.filter((r) => r.status === "PARSED").length;
   const failed = results.filter((r) => r.status === "FAIL").length;
   const skippedLowPoints = results.filter((r) => r.status === "SKIPPED_LOW_POINTS").length;
   const skippedDuplicateId = results.filter((r) => r.status === "SKIPPED_DUPLICATE_ID").length;
   const skippedDuplicateContent = results.filter((r) => r.status === "SKIPPED_DUPLICATE_CONTENT").length;
   lines.push(`# ${runName} Summary`);
   lines.push("");
+  lines.push(`- Phase: ${phase}`);
   lines.push(`- Source: \`datasets/raw/gpx-tracks-from-hikr.org.csv\``);
   lines.push(`- Limit: ${limit}`);
   lines.push(`- Offset (GPX rows skipped): ${offset}`);
-  lines.push(`- Min total points filter: > ${minTotalPoints}`);
+  lines.push(`- Min total points filter: >= ${minTotalPoints}`);
   lines.push(`- Injected duplicate test rows: ${injectTestDuplicates ? "yes" : "no"}`);
   lines.push(`- Processed: ${results.length}`);
-  lines.push(`- Passed: ${ok}`);
+  if (phase === "parse") {
+    lines.push(`- Parsed: ${parsed}`);
+  } else {
+    lines.push(`- Passed: ${ok}`);
+  }
   lines.push(`- Failed: ${failed}`);
   lines.push(`- Skipped (low points): ${skippedLowPoints}`);
   lines.push(`- Skipped (duplicate id): ${skippedDuplicateId}`);
@@ -189,24 +207,61 @@ function writeSummary(results, summaryPath, limit, runName, minTotalPoints, offs
   fs.writeFileSync(summaryPath, lines.join("\n"), "utf8");
 }
 
+function parseTotalPointCount(parsed) {
+  return parsed &&
+    parsed.audit &&
+    parsed.audit.ingestion &&
+    parsed.audit.ingestion.counts &&
+    typeof parsed.audit.ingestion.counts.totalPointCount === "number"
+    ? parsed.audit.ingestion.counts.totalPointCount
+    : 0;
+}
+
+function parseGpxFileName(fileName) {
+  const m = String(fileName).match(/^(\d+)_([^.]+)\.gpx$/i);
+  if (!m) return null;
+  return { seq: Number(m[1]), id: m[2] };
+}
+
+function parseUidOnlyGpxFileName(fileName) {
+  const m = String(fileName).match(/^([^.]+)\.gpx$/i);
+  if (!m) return null;
+  return { seq: null, id: m[1] };
+}
+
+function listParsedGpxFiles(parsedDir) {
+  if (!fs.existsSync(parsedDir)) {
+    throw new Error(`Parsed GPX directory not found: ${parsedDir}`);
+  }
+  return fs
+    .readdirSync(parsedDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".gpx"))
+    .map((entry) => path.join(parsedDir, entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
 async function main() {
-  const { limit, runName, minTotalPoints, offset, injectTestDuplicates } = parseCliArgs();
+  const { limit, runName, minTotalPoints, offset, injectTestDuplicates, phase, parsedDir } =
+    parseCliArgs();
   const runDir = path.join(ROOT, "runs", runName);
   const jsonDir = path.join(runDir, "json");
+  const parsedGpxDir = parsedDir
+    ? path.resolve(process.cwd(), parsedDir)
+    : path.join(runDir, "parsed-gpx");
   const manifestPath = path.join(runDir, "manifest.json");
   const summaryPath = path.join(runDir, "summary.md");
   const errorsPath = path.join(runDir, "errors.jsonl");
 
   ensureDir(runDir);
-  ensureDir(jsonDir);
+  if (phase === "combined" || phase === "generate") ensureDir(jsonDir);
+  if (phase === "combined" || phase === "parse") ensureDir(parsedGpxDir);
   fs.writeFileSync(errorsPath, "", "utf8");
   loadBrowserModules();
 
-  if (!fs.existsSync(CSV_PATH)) {
+  if ((phase === "combined" || phase === "parse") && !fs.existsSync(CSV_PATH)) {
     throw new Error(`CSV not found: ${CSV_PATH}`);
   }
 
-  const { stream, parser } = createGpxRowParser(CSV_PATH);
   const results = [];
   const startedAt = new Date().toISOString();
   const seenIds = new Set();
@@ -216,10 +271,12 @@ async function main() {
   let seenGpxRows = 0;
   let rowNumber = 1; // header is line 1
 
-  function processSelectedRow(selectedRowNumber, selectedRow) {
+  function processCsvRow(selectedRowNumber, selectedRow) {
     const id = sanitizeFilePart(String(selectedRow._id || ""), `row_${selectedRowNumber}`);
     const prefix = String(results.length + 1).padStart(4, "0");
-    const outputFile = `${prefix}_${id}.audit.json`;
+    const gpxFile = `${id}.gpx`;
+    const gpxPath = path.join(parsedGpxDir, gpxFile);
+    const outputFile = `${id}.audit.v2.json`;
     const outputPath = path.join(jsonDir, outputFile);
 
     try {
@@ -252,22 +309,30 @@ async function main() {
       seenGpxHashes.add(gpxHash);
 
       const parsed = parseGPX(selectedRow.gpx);
-      const totalPointCount = parsed &&
-        parsed.audit &&
-        parsed.audit.ingestion &&
-        parsed.audit.ingestion.counts &&
-        typeof parsed.audit.ingestion.counts.totalPointCount === "number"
-        ? parsed.audit.ingestion.counts.totalPointCount
-        : 0;
+      const totalPointCount = parseTotalPointCount(parsed);
 
-      if (totalPointCount <= minTotalPoints) {
+      if (totalPointCount < minTotalPoints) {
         results.push({
           rowNumber: selectedRowNumber,
           id,
           totalPointCount,
           status: "SKIPPED_LOW_POINTS",
           outputFile: null,
-          findings: [`totalPointCount<=${minTotalPoints}`]
+          findings: [`totalPointCount<${minTotalPoints}`]
+        });
+        return;
+      }
+
+      fs.writeFileSync(gpxPath, selectedRow.gpx, "utf8");
+
+      if (phase === "parse") {
+        results.push({
+          rowNumber: selectedRowNumber,
+          id,
+          totalPointCount,
+          status: "PARSED",
+          outputFile: gpxFile,
+          findings: []
         });
         return;
       }
@@ -314,47 +379,106 @@ async function main() {
     }
   }
 
-  for await (const row of parser) {
-    rowNumber++;
-    if (!row || typeof row.gpx !== "string" || !row.gpx.includes("<gpx")) {
-      continue;
-    }
-
-    seenGpxRows++;
-    if (seenGpxRows <= offset) {
-      continue;
-    }
-
-    selectedCount++;
-    if (injectTestDuplicates && seedRowsForInjection.length < 3) {
-      seedRowsForInjection.push({ rowNumber, row });
-    }
-
-    processSelectedRow(rowNumber, row);
-
-    if (selectedCount >= limit) {
-      break;
+  function processParsedFile(parsedFilePath) {
+    const fileName = path.basename(parsedFilePath);
+    const parsedName = parseGpxFileName(fileName) || parseUidOnlyGpxFileName(fileName);
+    const id = parsedName ? parsedName.id : sanitizeFilePart(fileName, "parsed");
+    const outputFile = fileName.replace(/\.gpx$/i, ".audit.v2.json");
+    const outputPath = path.join(jsonDir, outputFile);
+    try {
+      const raw = fs.readFileSync(parsedFilePath, "utf8");
+      const parsed = parseGPX(raw);
+      const points = parsed.points;
+      const temporal = auditTimestamps(points);
+      const sampling = auditSampling(points, id);
+      const motion = auditMotion(points);
+      const payload = buildAuditExportPayload({
+        fileName: `${id}.gpx`,
+        totalPointCount: parseTotalPointCount(parsed),
+        ingestionAudit: parsed.audit.ingestion,
+        temporalAudit: temporal.audit.temporal,
+        samplingAudit: sampling.audit.sampling,
+        motionAudit: motion.audit.motion
+      });
+      fs.writeFileSync(outputPath, JSON.stringify(payload, null, 2), "utf8");
+      const check = validatePayload(payload);
+      results.push({
+        rowNumber: parsedName ? parsedName.seq : null,
+        id,
+        totalPointCount: parseTotalPointCount(parsed),
+        status: check.passed ? "PASS" : "FAIL",
+        outputFile,
+        findings: check.findings
+      });
+    } catch (error) {
+      fs.appendFileSync(errorsPath, JSON.stringify({
+        rowNumber: parsedName ? parsedName.seq : null,
+        id,
+        error: error && error.message ? error.message : String(error)
+      }) + "\n");
+      results.push({
+        rowNumber: parsedName ? parsedName.seq : null,
+        id,
+        totalPointCount: null,
+        status: "FAIL",
+        outputFile: null,
+        findings: ["exception_during_processing"]
+      });
     }
   }
-  stream.destroy();
 
-  if (injectTestDuplicates && seedRowsForInjection.length >= 3) {
-    const first = seedRowsForInjection[0];
-    const second = seedRowsForInjection[1];
-    const third = seedRowsForInjection[2];
+  if (phase === "combined" || phase === "parse") {
+    const { stream, parser } = createGpxRowParser(CSV_PATH);
 
-    const duplicateIdRow = {
-      ...second.row,
-      _id: first.row._id
-    };
-    const duplicateContentRow = {
-      ...third.row,
-      _id: `${third.row._id || "row"}_dup_content`,
-      gpx: first.row.gpx
-    };
+    for await (const row of parser) {
+      rowNumber++;
+      if (!row || typeof row.gpx !== "string" || !row.gpx.includes("<gpx")) {
+        continue;
+      }
 
-    processSelectedRow(second.rowNumber, duplicateIdRow);
-    processSelectedRow(third.rowNumber, duplicateContentRow);
+      seenGpxRows++;
+      if (seenGpxRows <= offset) {
+        continue;
+      }
+
+      selectedCount++;
+      if (injectTestDuplicates && seedRowsForInjection.length < 3) {
+        seedRowsForInjection.push({ rowNumber, row });
+      }
+
+      processCsvRow(rowNumber, row);
+
+      if (selectedCount >= limit) {
+        break;
+      }
+    }
+    stream.destroy();
+
+    if ((phase === "combined" || phase === "parse") && injectTestDuplicates && seedRowsForInjection.length >= 3) {
+      const first = seedRowsForInjection[0];
+      const second = seedRowsForInjection[1];
+      const third = seedRowsForInjection[2];
+
+      const duplicateIdRow = {
+        ...second.row,
+        _id: first.row._id
+      };
+      const duplicateContentRow = {
+        ...third.row,
+        _id: `${third.row._id || "row"}_dup_content`,
+        gpx: first.row.gpx
+      };
+
+      processCsvRow(second.rowNumber, duplicateIdRow);
+      processCsvRow(third.rowNumber, duplicateContentRow);
+    }
+  } else if (phase === "generate") {
+    const parsedFiles = listParsedGpxFiles(parsedGpxDir);
+    const slice = parsedFiles.slice(offset, limit === null ? undefined : offset + limit);
+    selectedCount = slice.length;
+    for (const f of slice) {
+      processParsedFile(f);
+    }
   }
 
   const finishedAt = new Date().toISOString();
@@ -372,17 +496,39 @@ async function main() {
     skippedDuplicateIdCount: results.filter((r) => r.status === "SKIPPED_DUPLICATE_ID").length,
     skippedDuplicateContentCount: results.filter((r) => r.status === "SKIPPED_DUPLICATE_CONTENT").length,
     injectTestDuplicates,
+    phase,
     minTotalPointsFilter: minTotalPoints,
-    outputDir: `runs/${runName}/json`,
+    parsedGpxDir: path.relative(ROOT, parsedGpxDir).replace(/\\/g, "/"),
+    outputDir: phase === "parse" ? null : `runs/${runName}/json`,
     results
   };
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
-  writeSummary(results, summaryPath, limit, runName, minTotalPoints, offset, injectTestDuplicates);
+  writeSummary(results, summaryPath, {
+    limit,
+    runName,
+    minTotalPoints,
+    offset,
+    injectTestDuplicates,
+    phase
+  });
 
-  console.log(`Processed ${results.length} GPX rows from CSV`);
-  console.log(`Passed: ${manifest.passedCount}, Failed: ${manifest.failedCount}`);
+  if (phase === "parse") {
+    console.log(`Processed ${results.length} GPX rows from CSV (parse phase)`);
+    console.log(`Parsed: ${results.filter((r) => r.status === "PARSED").length}, Failed: ${manifest.failedCount}`);
+  } else if (phase === "generate") {
+    console.log(`Processed ${results.length} parsed GPX files (generate phase)`);
+    console.log(`Passed: ${manifest.passedCount}, Failed: ${manifest.failedCount}`);
+  } else {
+    console.log(`Processed ${results.length} GPX rows from CSV`);
+    console.log(`Passed: ${manifest.passedCount}, Failed: ${manifest.failedCount}`);
+  }
   console.log(`Skipped -> low points: ${manifest.skippedLowPointsCount}, duplicate id: ${manifest.skippedDuplicateIdCount}, duplicate content: ${manifest.skippedDuplicateContentCount}`);
-  console.log(`JSON output: ${jsonDir}`);
+  if (phase !== "generate") {
+    console.log(`Parsed GPX output: ${parsedGpxDir}`);
+  }
+  if (phase !== "parse") {
+    console.log(`JSON output: ${jsonDir}`);
+  }
   console.log(`Manifest: ${manifestPath}`);
   console.log(`Summary: ${summaryPath}`);
   if (manifest.failedCount > 0) process.exitCode = 2;
