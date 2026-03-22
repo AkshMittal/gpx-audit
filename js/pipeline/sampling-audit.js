@@ -41,7 +41,7 @@ function auditSampling(points, gpxFilename) {
   
   const timeDeltasMs = []; // Array<{ fromIndex, toIndex, dtSec }>
   const distanceDeltasMTimeConditioned = []; // Array<{ fromIndex, toIndex, ddMeters }>
-  const distanceDeltasMGeometryOnly = []; // Array<{ fromIndex, toIndex, ddMeters }>
+  const distanceDeltasMGeometryConditioned = []; // Array<{ fromIndex, toIndex, ddMeters }> — valid-distance (haversine) consecutive pairs; not time-gated
   let previousTimestampMs = null;
   let previousTimestampGpxIndex = null;
   let previousPoint = null; // Track previous point with valid coordinates (lat, lon, gpxIndex)
@@ -90,7 +90,7 @@ function auditSampling(points, gpxFilename) {
       );
       distanceFromPrevValid = isFinite(distanceFromPrev) && distanceFromPrev >= 0;
       if (distanceFromPrevValid) {
-        distanceDeltasMGeometryOnly.push({
+        distanceDeltasMGeometryConditioned.push({
           fromIndex: previousPoint.gpxIndex,
           toIndex: point.gpxIndex,
           ddMeters: distanceFromPrev
@@ -156,7 +156,7 @@ function auditSampling(points, gpxFilename) {
   // console.log('========================');
   
   // Primary distance series for charts/exports: time-conditioned when progression exists, else geometry-only
-  const distanceDeltasM = hasTimeProgression ? distanceDeltasMTimeConditioned : distanceDeltasMGeometryOnly;
+  const distanceDeltasM = hasTimeProgression ? distanceDeltasMTimeConditioned : distanceDeltasMGeometryConditioned;
   
   // Distance delta audit summary
   if (hasTimeProgression) {
@@ -166,7 +166,7 @@ function auditSampling(points, gpxFilename) {
   } else {
     // console.log('=== Distance Delta Audit (geometry-only) ===');
     // console.log('Consecutive point pairs considered:', consecutivePointPairsConsidered);
-    // console.log('Distance deltas collected:', distanceDeltasMGeometryOnly.length);
+    // console.log('Distance deltas collected:', distanceDeltasMGeometryConditioned.length);
     // console.log('Rejected (non-finite or negative distance):', rejectedDistanceNonFiniteOrNegative);
     // console.log('============================================');
   }
@@ -525,8 +525,8 @@ function auditSampling(points, gpxFilename) {
               }
             }
           },
-          geometryOnly: {
-            deltaCount: distanceDeltasMGeometryOnly.length
+          geometryConditioned: {
+            deltaCount: distanceDeltasMGeometryConditioned.length
           },
           timeConditioned: {
             deltaCount: distanceDeltasMTimeConditioned.length
