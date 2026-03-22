@@ -1,48 +1,65 @@
-export const PRESETS = ["overview", "temporal", "sampling", "motion"];
+export const PRESETS = [
+  "tracks",
+  "ingestion_metrics",
+  "temporal_metrics",
+  "sampling_metrics",
+  "motion_metrics",
+];
 
 export const INITIAL_FILTERS = {
-  sourceDataset: "",
   trackUidContains: "",
+  sourceFileNameContains: "",
+  schemaVersion: "",
+  /** "any" | "hikr_12k" | "custom-test" */
+  dataSource: "any",
 
-  validPointMin: "",
-  validPointMax: "",
-  rejectedPointMin: "",
-  rejectedPointMax: "",
+  summaryTotalPointMin: "",
+  summaryTotalPointMax: "",
+  ingestionValidPointMin: "",
+  ingestionValidPointMax: "",
+  ingestionRejectedPointMin: "",
+  ingestionRejectedPointMax: "",
+  hasAnyTimestampValues: "any",
 
-  hasAnyTemporalAnomaly: "any",
-  hasAnyTemporalBlock: "any",
-  hasAnyTemporalSinglePoint: "any",
   missingRatioMin: "",
   missingRatioMax: "",
-  backtrackingCountMin: "",
+  unparsableRatioMin: "",
+  unparsableRatioMax: "",
+  duplicateRatioMin: "",
+  duplicateRatioMax: "",
+  backtrackingPointCountMin: "",
 
-  hasTimeProgression: "any",
-  samplingStabilityRatioMin: "",
-  samplingStabilityRatioMax: "",
-  clusterCountSortedMin: "",
+  hasAnyPositiveTimeDelta: "any",
+  sequentialOverSortedClusterRatioMin: "",
+  sequentialOverSortedClusterRatioMax: "",
+  sortedClusterCountMin: "",
 
-  hasMotionTimeContext: "any",
-  invalidTimeRatioMin: "",
-  invalidTimeRatioMax: "",
+  invalidTimeShareMin: "",
+  invalidTimeShareMax: "",
+  forwardValidPairCountMin: "",
 };
 
 export function createInitialState(config) {
   return {
     config,
-    selectedPreset: "overview",
+    selectedPreset: "tracks",
     page: 1,
     pageSize: config.pageSize,
     totalCount: 0,
     sort: {
-      field: "track_uid",
+      field: "id",
       direction: "asc",
     },
     filters: { ...INITIAL_FILTERS },
-    activeCategory: "dataset",
+    /** Snapshot used for chips + list filtering; updated on Apply (and chip-remove / reset). */
+    appliedFilters: { ...INITIAL_FILTERS },
+    activeCategory: "identity",
 
     loadingList: false,
     listError: "",
     rows: [],
+    allRows: [],
+    cacheLoaded: false,
 
     selectedTrackUid: "",
     selectedDetail: null,
@@ -61,6 +78,7 @@ export function createInitialState(config) {
 
 export function resetFilters(state) {
   state.filters = { ...INITIAL_FILTERS };
+  state.appliedFilters = { ...INITIAL_FILTERS };
   state.page = 1;
 }
 

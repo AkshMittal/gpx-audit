@@ -21,8 +21,40 @@
       --ok: #a8bf9e;
     }
 
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #e9e0d6 transparent;
+    }
+
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background: transparent;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: #e9e0d6;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+    }
     body {
       font-family: "Spline Sans Mono", monospace;
       letter-spacing: 0.1px;
@@ -36,6 +68,10 @@
       max-width: 1480px;
       margin: 0 auto;
       padding: 20px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .top {
@@ -89,13 +125,18 @@
       display: grid;
       grid-template-columns: 310px 1fr 370px;
       gap: 12px;
-      min-height: 76vh;
+      flex: 1;
+      min-height: 0;
     }
 
     .panel {
       background: linear-gradient(170deg, var(--panel), var(--panel-2));
       border: 1px solid var(--line);
       box-shadow: 0 16px 25px rgba(0, 0, 0, 0.24);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .panel-head {
@@ -127,8 +168,17 @@
 
     .filters {
       padding: 10px;
-      max-height: calc(76vh - 20px);
+      flex: 1;
+      min-height: 0;
       overflow: auto;
+    }
+
+    .filters-actions-bar {
+      border-top: 1px solid var(--line);
+      padding: 8px 10px 10px;
+      background: linear-gradient(180deg, #2f2925, #2a2420);
+      display: flex;
+      gap: 6px;
     }
 
     .filter-category {
@@ -184,16 +234,6 @@
 
     .field-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 
-    .filter-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      position: sticky;
-      bottom: 0;
-      background: linear-gradient(180deg, transparent, #2d2723 26%);
-      padding-top: 8px;
-    }
-
     button {
       border: 1px solid var(--line);
       background: #28221f;
@@ -219,7 +259,7 @@
 
     .main {
       display: grid;
-      grid-template-rows: auto auto 1fr auto;
+      grid-template-rows: auto auto auto 1fr auto;
       min-height: 0;
     }
 
@@ -236,12 +276,38 @@
       background: linear-gradient(to right, var(--accent-soft), transparent 70%);
     }
 
+    .active-meta-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 2px 10px 10px;
+      margin-top: 8px;
+      min-height: 0;
+    }
+
     .active-filter-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      padding: 8px 10px;
-      min-height: 36px;
+      padding: 0;
+      min-height: 0;
+      max-height: 34px;
+      overflow: hidden;
+      align-content: flex-start;
+      align-items: flex-start;
+      flex: 1 1 auto;
+    }
+
+    .active-sort-state {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 0;
+      min-height: 22px;
+      max-height: 34px;
+      overflow: hidden;
+      align-items: flex-start;
+      flex: 0 0 auto;
     }
 
     .chip {
@@ -250,6 +316,16 @@
       color: #dfd0bf;
       padding: 3px 6px;
       background: #2e2722;
+    }
+
+    .sort-chip {
+      font-size: 10px;
+      border: 1px solid #5c6f78;
+      color: #d6e6ee;
+      padding: 3px 7px;
+      background: #27333a;
+      text-transform: lowercase;
+      letter-spacing: 0.3px;
     }
 
     .table-wrap {
@@ -305,8 +381,10 @@
 
     .detail-body {
       padding: 10px;
-      max-height: calc(76vh - 20px);
-      overflow: auto;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
       font-size: 12px;
     }
 
@@ -337,7 +415,7 @@
 
     .kv-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 5px 8px;
       padding: 8px;
     }
@@ -346,9 +424,15 @@
       border: 1px solid #544840;
       padding: 6px;
       background: #312a25;
+      min-width: 0;
     }
     .kv .k { color: var(--muted); font-size: 10px; margin-bottom: 4px; text-transform: lowercase; }
-    .kv .v { color: var(--text); font-size: 12px; }
+    .kv .v {
+      color: var(--text);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     .artifact-actions {
       display: grid;
@@ -357,15 +441,42 @@
       padding: 8px;
     }
 
-    .status-line {
-      padding: 7px 10px;
-      border-top: 1px solid var(--line);
-      font-size: 11px;
-      color: var(--muted);
-      min-height: 34px;
+    .cache-loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(12, 10, 9, 0.46);
+      backdrop-filter: blur(7px);
+      -webkit-backdrop-filter: blur(7px);
     }
 
-    .status-line.error { color: #f0a9a9; }
+    .cache-loading-overlay.open {
+      display: flex;
+    }
+
+    .cache-loading-card {
+      border: 1px solid #6a5e55;
+      background: rgba(34, 29, 26, 0.82);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.38);
+      padding: 16px 18px;
+      min-width: 280px;
+      text-align: center;
+      color: #eadfce;
+      font-size: 12px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }
+
+    .cache-loading-subtext {
+      margin-top: 8px;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      text-transform: none;
+      color: var(--muted);
+    }
 
     .modal {
       position: fixed;
@@ -434,6 +545,26 @@
     .anomaly-item:hover { border-color: var(--accent); }
     .anomaly-item.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-soft); }
     .anomaly-item strong { display: block; color: #eadac7; margin-bottom: 3px; }
+    .finding-badge {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 2px 5px;
+      font-size: 9px;
+      text-transform: lowercase;
+      border: 1px solid #6b6159;
+      color: #d7cabd;
+      background: #312923;
+    }
+    .finding-badge.diagnostic {
+      border-color: #5c6f78;
+      color: #d6e6ee;
+      background: #27333a;
+    }
+    .finding-badge.anomaly {
+      border-color: #6b6159;
+      color: #eadac7;
+      background: #352a23;
+    }
     .anomaly-item code { color: #d7cabd; font-size: 10px; }
 
     .json-view {
@@ -471,12 +602,12 @@
       <div>
         <h1 class="title">Case Study Explorer</h1>
         <div class="subtitle">
-          Read-only, queryable Phase 1 surface for ingestion/temporal/sampling/motion analytics with storage-backed deep inspection.
+          Read-only, queryable surface for GPX ingestion/temporal/sampling/motion analytics with storage-backed deep inspection.
         </div>
       </div>
       <div class="top-links">
         <a href="index.html">single-gpx workbench ↗</a>
-        <a href="visualization-notes.html" target="_blank" rel="noopener">visualization notes ↗</a>
+        <a href="https://akshmittal.medium.com/gpx-audit-pipeline-module-spec-technical-writeup-393b3cb7cff5?source=friends_link&sk=3a112fc777004d0c2a2ff45c0dbec986" target="_blank" rel="noopener">methodology ↗</a>
       </div>
     </header>
 
@@ -487,6 +618,7 @@
           <small id="activeFilterCount">0 active</small>
         </div>
         <div class="filters" id="filterContainer"></div>
+        <div class="filters-actions-bar" id="filterActionsBar"></div>
       </aside>
 
       <section class="panel main">
@@ -495,7 +627,10 @@
           <small id="resultCountLabel">0 tracks</small>
         </div>
         <div class="preset-tabs" id="presetTabs"></div>
-        <div class="active-filter-chips" id="activeFilterChips"></div>
+        <div class="active-meta-row">
+          <div class="active-sort-state" id="activeSortState"></div>
+          <div class="active-filter-chips" id="activeFilterChips"></div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead id="tableHead"></thead>
@@ -524,7 +659,6 @@
         <div class="detail-body" id="detailBody">
           <div class="detail-empty">Select a track row to inspect full per-track detail.</div>
         </div>
-        <div class="status-line" id="detailStatus"></div>
       </aside>
     </section>
   </main>
@@ -536,10 +670,10 @@
     </div>
     <div class="inspector-toolbar">
       <select id="anomalyTypeSelect"></select>
-      <button type="button" id="prevAnomalyBtn">Prev anomaly</button>
-      <button type="button" id="nextAnomalyBtn">Next anomaly</button>
+      <button type="button" id="prevAnomalyBtn">Prev item</button>
+      <button type="button" id="nextAnomalyBtn">Next item</button>
       <button type="button" id="copyPathBtn">Copy path</button>
-      <span id="inspectorSummary" class="chip">0 anomalies</span>
+      <span id="inspectorSummary" class="chip">0 findings</span>
     </div>
     <div class="inspector-grid">
       <div class="anomaly-list" id="anomalyList"></div>
@@ -547,12 +681,21 @@
     </div>
   </section>
 
+  <div class="cache-loading-overlay" id="cacheLoadingOverlay" aria-live="polite">
+    <div class="cache-loading-card">
+      <div id="cacheLoadingMessage">Database loading...</div>
+      <div class="cache-loading-subtext">This may take up to 10 seconds.</div>
+    </div>
+  </div>
+
   <script>
     // Use Supabase URL + PUBLISHABLE key only. Never place service role key in frontend code.
     window.CASE_STUDY_CONFIG = {
       supabaseUrl: "https://azbtqxxsifqqaeobfhiw.supabase.co",
       supabaseAnonKey: "sb_publishable_yNyzcGBQuruAW2y2Lp2_Iw_DywvGeFL",
-      pageSize: 25
+      pageSize: 25,
+      clientCacheMode: true,
+      fetchBatchSize: 1000
     };
   </script>
   <script type="module" src="js/frontend/case-study-ui.js"></script>

@@ -10,54 +10,57 @@ import {
 
 const FILTER_SCHEMA = [
   {
-    id: "dataset",
-    label: "Dataset & Identity",
+    id: "identity",
+    label: "Identity",
     fields: [
-      { key: "sourceDataset", label: "source_dataset", type: "text" },
       { key: "trackUidContains", label: "track_uid contains", type: "text" },
-      { key: "validPointMin", label: "valid_point_count min", type: "number" },
-      { key: "validPointMax", label: "valid_point_count max", type: "number" },
-      { key: "rejectedPointMin", label: "rejected_point_count min", type: "number" },
-      { key: "rejectedPointMax", label: "rejected_point_count max", type: "number" },
+      { key: "sourceFileNameContains", label: "source_file_name contains", type: "text" },
+      { key: "schemaVersion", label: "schema_version", type: "text" },
+      {
+        key: "dataSource",
+        label: "data_source",
+        type: "select",
+        options: [
+          { value: "any", label: "any" },
+          { value: "hikr_12k", label: "hikr_12k" },
+          { value: "custom-test", label: "custom-test" },
+        ],
+      },
+      { key: "summaryTotalPointMin", label: "summary_total_point_count min", type: "number" },
+      { key: "summaryTotalPointMax", label: "summary_total_point_count max", type: "number" },
+    ],
+  },
+  {
+    id: "ingestion",
+    label: "Ingestion",
+    fields: [
+      { key: "ingestionValidPointMin", label: "valid_point_count min", type: "number" },
+      { key: "ingestionValidPointMax", label: "valid_point_count max", type: "number" },
+      { key: "ingestionRejectedPointMin", label: "rejected_point_count min", type: "number" },
+      { key: "ingestionRejectedPointMax", label: "rejected_point_count max", type: "number" },
+      {
+        key: "hasAnyTimestampValues",
+        label: "has_any_timestamp_values",
+        type: "select",
+        options: [
+          { value: "any", label: "any" },
+          { value: "true", label: "true" },
+          { value: "false", label: "false" },
+        ],
+      },
     ],
   },
   {
     id: "temporal",
     label: "Temporal",
     fields: [
-      {
-        key: "hasAnyTemporalAnomaly",
-        label: "has_any_temporal_anomaly",
-        type: "select",
-        options: [
-          { value: "any", label: "any" },
-          { value: "true", label: "true" },
-          { value: "false", label: "false" },
-        ],
-      },
-      {
-        key: "hasAnyTemporalBlock",
-        label: "has_any_temporal_block",
-        type: "select",
-        options: [
-          { value: "any", label: "any" },
-          { value: "true", label: "true" },
-          { value: "false", label: "false" },
-        ],
-      },
-      {
-        key: "hasAnyTemporalSinglePoint",
-        label: "has_any_temporal_single_point",
-        type: "select",
-        options: [
-          { value: "any", label: "any" },
-          { value: "true", label: "true" },
-          { value: "false", label: "false" },
-        ],
-      },
       { key: "missingRatioMin", label: "missing_ratio min", type: "number", step: "0.001" },
       { key: "missingRatioMax", label: "missing_ratio max", type: "number", step: "0.001" },
-      { key: "backtrackingCountMin", label: "backtracking_count min", type: "number" },
+      { key: "unparsableRatioMin", label: "unparsable_ratio min", type: "number", step: "0.001" },
+      { key: "unparsableRatioMax", label: "unparsable_ratio max", type: "number", step: "0.001" },
+      { key: "duplicateRatioMin", label: "duplicate_ratio min", type: "number", step: "0.001" },
+      { key: "duplicateRatioMax", label: "duplicate_ratio max", type: "number", step: "0.001" },
+      { key: "backtrackingPointCountMin", label: "backtracking_point_count min", type: "number" },
     ],
   },
   {
@@ -65,8 +68,8 @@ const FILTER_SCHEMA = [
     label: "Sampling",
     fields: [
       {
-        key: "hasTimeProgression",
-        label: "has_time_progression",
+        key: "hasAnyPositiveTimeDelta",
+        label: "has_any_positive_time_delta",
         type: "select",
         options: [
           { value: "any", label: "any" },
@@ -75,18 +78,18 @@ const FILTER_SCHEMA = [
         ],
       },
       {
-        key: "samplingStabilityRatioMin",
-        label: "sampling_stability_ratio min",
+        key: "sequentialOverSortedClusterRatioMin",
+        label: "sequential_over_sorted_cluster_count_ratio min",
         type: "number",
         step: "0.001",
       },
       {
-        key: "samplingStabilityRatioMax",
-        label: "sampling_stability_ratio max",
+        key: "sequentialOverSortedClusterRatioMax",
+        label: "sequential_over_sorted_cluster_count_ratio max",
         type: "number",
         step: "0.001",
       },
-      { key: "clusterCountSortedMin", label: "cluster_count_sorted min", type: "number" },
+      { key: "sortedClusterCountMin", label: "sorted_cluster_count min", type: "number" },
     ],
   },
   {
@@ -94,86 +97,139 @@ const FILTER_SCHEMA = [
     label: "Motion",
     fields: [
       {
-        key: "hasMotionTimeContext",
-        label: "has_motion_time_context",
-        type: "select",
-        options: [
-          { value: "any", label: "any" },
-          { value: "true", label: "true" },
-          { value: "false", label: "false" },
-        ],
+        key: "invalidTimeShareMin",
+        label: "invalid_time_share_of_evaluated_time min",
+        type: "number",
+        step: "0.001",
       },
-      { key: "invalidTimeRatioMin", label: "invalid_time_ratio min", type: "number", step: "0.001" },
-      { key: "invalidTimeRatioMax", label: "invalid_time_ratio max", type: "number", step: "0.001" },
+      {
+        key: "invalidTimeShareMax",
+        label: "invalid_time_share_of_evaluated_time max",
+        type: "number",
+        step: "0.001",
+      },
+      { key: "forwardValidPairCountMin", label: "forward_valid_pair_count min", type: "number" },
     ],
   },
 ];
 
+function scalarColumn(key, sortField = key) {
+  return { key, label: key, sortField, get: (r) => formatCellValue(r[key]) };
+}
+
+function relationColumn(prefix, key) {
+  return {
+    key: `${prefix}.${key}`,
+    label: key,
+    sortField: `${prefix}.${key}`,
+    get: (r) => formatCellValue(r[prefix]?.[key]),
+  };
+}
+
+function formatCellValue(value) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") {
+    if (Number.isInteger(value)) return value.toLocaleString();
+    return value.toFixed(3);
+  }
+  return String(value);
+}
+
 const TABLE_PRESETS = {
-  overview: [
-    { key: "track_uid", label: "track_uid", sortField: "track_uid", get: (r) => r.track_uid },
-    { key: "source_dataset", label: "dataset", sortField: "source_dataset", get: (r) => r.source_dataset },
-    {
-      key: "valid_point_count",
-      label: "valid_pts",
-      sortField: "valid_point_count",
-      get: (r) => formatNum(r.valid_point_count),
-    },
-    {
-      key: "temporal_flag",
-      label: "temporal",
-      sortField: "missing_ratio",
-      get: (r) => boolTag(r.temporal?.has_any_temporal_anomaly),
-    },
-    {
-      key: "sampling_flag",
-      label: "sampling",
-      sortField: "sampling_stability_ratio",
-      get: (r) => ratioTag(r.sampling?.sampling_stability_ratio),
-    },
-    {
-      key: "motion_flag",
-      label: "motion",
-      sortField: "invalid_time_ratio",
-      get: (r) => ratioTag(r.motion?.invalid_time_ratio),
-    },
+  tracks: [
+    scalarColumn("track_uid", "track_uid"),
+    scalarColumn("id"),
+    scalarColumn("data_source"),
+    scalarColumn("schema_version"),
+    scalarColumn("generated_at_utc"),
+    scalarColumn("source_file_name"),
+    scalarColumn("summary_total_point_count"),
   ],
-  temporal: [
-    { key: "track_uid", label: "track_uid", sortField: "track_uid", get: (r) => r.track_uid },
-    {
-      key: "has_any_temporal_anomaly",
-      label: "any_anomaly",
-      sortField: "missing_ratio",
-      get: (r) => yesNo(r.temporal?.has_any_temporal_anomaly),
-    },
-    {
-      key: "has_any_temporal_block",
-      label: "any_block",
-      sortField: "backtracking_count",
-      get: (r) => yesNo(r.temporal?.has_any_temporal_block),
-    },
-    {
-      key: "has_any_temporal_single_point",
-      label: "any_single",
-      sortField: "backtracking_count",
-      get: (r) => yesNo(r.temporal?.has_any_temporal_single_point),
-    },
-    { key: "missing_ratio", label: "missing_ratio", sortField: "missing_ratio", get: (r) => formatRatio(r.temporal?.missing_ratio) },
-    { key: "backtracking_count", label: "backtracking_count", sortField: "backtracking_count", get: (r) => formatNum(r.temporal?.backtracking_count) },
+  ingestion_metrics: [
+    scalarColumn("track_uid", "track_uid"),
+    relationColumn("ingestion", "track_id"),
+    relationColumn("ingestion", "total_point_count"),
+    relationColumn("ingestion", "valid_point_count"),
+    relationColumn("ingestion", "rejected_point_count"),
+    relationColumn("ingestion", "point_type_wpt_count"),
+    relationColumn("ingestion", "point_type_rtept_count"),
+    relationColumn("ingestion", "point_type_trkpt_count"),
+    relationColumn("ingestion", "has_multiple_point_types"),
+    relationColumn("ingestion", "has_any_timestamp_values"),
   ],
-  sampling: [
-    { key: "track_uid", label: "track_uid", sortField: "track_uid", get: (r) => r.track_uid },
-    { key: "has_time_progression", label: "time_progression", sortField: "sampling_stability_ratio", get: (r) => yesNo(r.sampling?.has_time_progression) },
-    { key: "sampling_stability_ratio", label: "stability_ratio", sortField: "sampling_stability_ratio", get: (r) => formatRatio(r.sampling?.sampling_stability_ratio) },
-    { key: "cluster_count_sorted", label: "cluster_count_sorted", sortField: "cluster_count_sorted", get: (r) => formatNum(r.sampling?.cluster_count_sorted) },
-    { key: "global_final_max_relative_deviation", label: "max_rel_dev", sortField: "sampling_stability_ratio", get: (r) => formatRatio(r.sampling?.global_final_max_relative_deviation) },
+  temporal_metrics: [
+    scalarColumn("track_uid", "track_uid"),
+    relationColumn("temporal", "track_id"),
+    relationColumn("temporal", "total_points_evaluated"),
+    relationColumn("temporal", "raw_session_duration_sec"),
+    relationColumn("temporal", "parseable_timestamp_point_count"),
+    relationColumn("temporal", "monotonic_forward_count"),
+    relationColumn("temporal", "missing_point_count"),
+    relationColumn("temporal", "missing_point_count_over_total_points_ratio"),
+    relationColumn("temporal", "missing_max_block_length"),
+    relationColumn("temporal", "missing_isolated_point_count"),
+    relationColumn("temporal", "unparsable_point_count"),
+    relationColumn("temporal", "unparsable_point_count_over_total_points_ratio"),
+    relationColumn("temporal", "unparsable_max_block_length"),
+    relationColumn("temporal", "unparsable_isolated_point_count"),
+    relationColumn("temporal", "duplicate_point_count"),
+    relationColumn("temporal", "duplicate_point_count_over_total_points_ratio"),
+    relationColumn("temporal", "duplicate_max_block_length"),
+    relationColumn("temporal", "duplicate_isolated_point_count"),
+    relationColumn("temporal", "backtracking_point_count"),
+    relationColumn("temporal", "backtracking_max_depth_from_anchor_ms"),
+    relationColumn("temporal", "backtracking_max_block_length"),
+    relationColumn("temporal", "backtracking_isolated_point_count"),
   ],
-  motion: [
-    { key: "track_uid", label: "track_uid", sortField: "track_uid", get: (r) => r.track_uid },
-    { key: "has_motion_time_context", label: "has_context", sortField: "invalid_time_ratio", get: (r) => yesNo(r.motion?.has_motion_time_context) },
-    { key: "invalid_time_ratio", label: "invalid_time_ratio", sortField: "invalid_time_ratio", get: (r) => formatRatio(r.motion?.invalid_time_ratio) },
-    { key: "mean_speed_mps", label: "mean_speed_mps", sortField: "invalid_time_ratio", get: (r) => formatFloat(r.motion?.mean_speed_mps) },
-    { key: "max_speed_mps", label: "max_speed_mps", sortField: "invalid_time_ratio", get: (r) => formatFloat(r.motion?.max_speed_mps) },
+  sampling_metrics: [
+    scalarColumn("track_uid", "track_uid"),
+    relationColumn("sampling", "track_id"),
+    relationColumn("sampling", "has_any_parseable_timestamp"),
+    relationColumn("sampling", "has_any_positive_time_delta"),
+    relationColumn("sampling", "timestamped_points_count"),
+    relationColumn("sampling", "consecutive_timestamp_pairs_count"),
+    relationColumn("sampling", "positive_time_delta_count"),
+    relationColumn("sampling", "non_positive_time_delta_pair_count"),
+    relationColumn("sampling", "positive_delta_count"),
+    relationColumn("sampling", "delta_min_ms"),
+    relationColumn("sampling", "delta_max_ms"),
+    relationColumn("sampling", "delta_median_ms"),
+    relationColumn("sampling", "insertion_relative_threshold"),
+    relationColumn("sampling", "sorted_cluster_count"),
+    relationColumn("sampling", "sequential_cluster_count"),
+    relationColumn("sampling", "sorted_cluster_count_over_total_deltas_ratio"),
+    relationColumn("sampling", "sequential_cluster_count_over_total_deltas_ratio"),
+    relationColumn("sampling", "sequential_over_sorted_cluster_count_ratio"),
+    relationColumn("sampling", "mean_final_absolute_deviation_sec"),
+    relationColumn("sampling", "max_final_absolute_deviation_sec"),
+    relationColumn("sampling", "mean_final_relative_deviation"),
+    relationColumn("sampling", "max_final_relative_deviation"),
+    relationColumn("sampling", "non_zero_final_deviation_count"),
+    relationColumn("sampling", "zero_final_deviation_count"),
+    relationColumn("sampling", "distance_consecutive_pair_count"),
+    relationColumn("sampling", "invalid_distance_rejection_count"),
+    // sampling_metrics: two columns — geometry-conditioned (valid-distance pairs) vs time-conditioned (positive dt pairs)
+    relationColumn("sampling", "geometry_conditioned_delta_count"),
+    relationColumn("sampling", "time_conditioned_delta_count"),
+  ],
+  motion_metrics: [
+    scalarColumn("track_uid", "track_uid"),
+    relationColumn("motion", "track_id"),
+    relationColumn("motion", "consecutive_pair_count"),
+    relationColumn("motion", "forward_valid_pair_count"),
+    relationColumn("motion", "missing_timestamp_pair_count"),
+    relationColumn("motion", "unparsable_timestamp_pair_count"),
+    relationColumn("motion", "non_finite_distance_pair_count"),
+    relationColumn("motion", "backward_time_pair_count"),
+    relationColumn("motion", "zero_time_delta_pair_count"),
+    relationColumn("motion", "valid_motion_time_seconds"),
+    relationColumn("motion", "invalid_time_seconds"),
+    relationColumn("motion", "invalid_time_share_of_evaluated_time"),
+    relationColumn("motion", "total_forward_valid_distance_meters"),
+    relationColumn("motion", "mean_speed_mps"),
+    relationColumn("motion", "median_speed_mps"),
+    relationColumn("motion", "max_speed_mps"),
   ],
 };
 
@@ -183,53 +239,23 @@ let listRequestNonce = 0;
 let detailRequestNonce = 0;
 const detailCache = new Map();
 
-function formatNum(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString();
-}
-
-function formatFloat(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toFixed(2);
-}
-
-function formatRatio(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toFixed(3);
-}
-
-function yesNo(value) {
-  if (value === null || value === undefined) return "—";
-  return value ? "yes" : "no";
-}
-
-function boolTag(value) {
-  if (value === null || value === undefined) return "—";
-  return value ? "flagged" : "clean";
-}
-
-function ratioTag(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  const n = Number(value);
-  if (n >= 0.4) return `high (${n.toFixed(2)})`;
-  if (n >= 0.2) return `mid (${n.toFixed(2)})`;
-  return `low (${n.toFixed(2)})`;
-}
-
 function setStatus(text, isError = false) {
   const statusEl = document.getElementById("detailStatus");
+  if (!statusEl) return;
   statusEl.textContent = text || "";
   statusEl.classList.toggle("error", Boolean(isError));
 }
 
 function renderFilterRail() {
   const container = document.getElementById("filterContainer");
+  const actionBar = document.getElementById("filterActionsBar");
   container.innerHTML = "";
+  if (actionBar) actionBar.innerHTML = "";
 
   FILTER_SCHEMA.forEach((category) => {
     const catEl = document.createElement("section");
     catEl.className = "filter-category";
-    if (category.id === "dataset") catEl.classList.add("open");
+    if (category.id === "identity") catEl.classList.add("open");
 
     const toggleBtn = document.createElement("button");
     toggleBtn.type = "button";
@@ -266,7 +292,6 @@ function renderFilterRail() {
       input.value = state.filters[field.key] || "";
       input.addEventListener("input", () => {
         state.filters[field.key] = input.value;
-        renderActiveFilterChips();
       });
       wrap.appendChild(input);
       body.appendChild(wrap);
@@ -277,10 +302,14 @@ function renderFilterRail() {
     clearCategoryBtn.textContent = `Clear ${category.label}`;
     clearCategoryBtn.addEventListener("click", () => {
       category.fields.forEach((field) => {
-        state.filters[field.key] = field.type === "select" ? "any" : "";
+        const empty = field.type === "select" ? "any" : "";
+        state.filters[field.key] = empty;
+        state.appliedFilters[field.key] = empty;
       });
       renderFilterRail();
       renderActiveFilterChips();
+      state.page = 1;
+      refreshTrackList();
     });
     body.appendChild(clearCategoryBtn);
     catEl.appendChild(body);
@@ -288,15 +317,16 @@ function renderFilterRail() {
   });
 
   const actionWrap = document.createElement("div");
-  actionWrap.className = "filter-actions";
   actionWrap.innerHTML = `
     <button type="button" class="btn-primary" id="applyFiltersBtn">Apply filters</button>
     <button type="button" id="resetFiltersBtn">Reset all</button>
   `;
-  container.appendChild(actionWrap);
+  if (actionBar) actionBar.appendChild(actionWrap);
 
   document.getElementById("applyFiltersBtn").addEventListener("click", () => {
+    state.appliedFilters = { ...state.filters };
     state.page = 1;
+    renderActiveFilterChips();
     refreshTrackList();
   });
   document.getElementById("resetFiltersBtn").addEventListener("click", () => {
@@ -330,17 +360,20 @@ function renderPresetTabs() {
 function renderActiveFilterChips() {
   const chipsWrap = document.getElementById("activeFilterChips");
   chipsWrap.innerHTML = "";
-  const activeCount = countActiveFilters(state.filters);
+  const activeCount = countActiveFilters(state.appliedFilters);
   document.getElementById("activeFilterCount").textContent = `${activeCount} active`;
 
-  Object.entries(state.filters).forEach(([key, value]) => {
+  Object.entries(state.appliedFilters).forEach(([key, value]) => {
     if (value === "" || value === "any") return;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip";
     chip.textContent = `${key}: ${value} ×`;
     chip.addEventListener("click", () => {
-      state.filters[key] = key.toLowerCase().includes("has") ? "any" : "";
+      const empty =
+        key === "dataSource" || key.toLowerCase().includes("has") ? "any" : "";
+      state.filters[key] = empty;
+      state.appliedFilters[key] = empty;
       renderFilterRail();
       renderActiveFilterChips();
       state.page = 1;
@@ -350,8 +383,226 @@ function renderActiveFilterChips() {
   });
 }
 
+function formatSortFieldLabel(sortField) {
+  if (!sortField.includes(".")) return `tracks.${sortField}`;
+  const [prefix, column] = sortField.split(".", 2);
+  const tableByPrefix = {
+    ingestion: "ingestion_metrics",
+    temporal: "temporal_metrics",
+    sampling: "sampling_metrics",
+    motion: "motion_metrics",
+  };
+  return `${tableByPrefix[prefix] || prefix}.${column}`;
+}
+
+function renderActiveSortState() {
+  const target = document.getElementById("activeSortState");
+  if (!target) return;
+  target.innerHTML = "";
+  const chip = document.createElement("span");
+  chip.className = "sort-chip";
+  const arrow = state.sort.direction === "asc" ? "asc" : "desc";
+  chip.textContent = `sort: ${formatSortFieldLabel(state.sort.field)} (${arrow})`;
+  target.appendChild(chip);
+}
+
+function setCacheLoadingOverlay(visible, message = "Database loading...") {
+  const overlay = document.getElementById("cacheLoadingOverlay");
+  const textEl = document.getElementById("cacheLoadingMessage");
+  if (textEl) textEl.textContent = message;
+  if (overlay) {
+    overlay.classList.toggle("open", Boolean(visible));
+  }
+}
+
+function toBoolFilterValue(rawValue) {
+  if (rawValue === "true") return true;
+  if (rawValue === "false") return false;
+  return null;
+}
+
+function readSortValue(row, sortField) {
+  if (!sortField || !sortField.includes(".")) return row?.[sortField];
+  const [prefix, key] = sortField.split(".", 2);
+  return row?.[prefix]?.[key];
+}
+
+function parseNumberOrNull(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function matchesRange(value, minValue, maxValue) {
+  const numberValue = parseNumberOrNull(value);
+  if (minValue !== "") {
+    const min = parseNumberOrNull(minValue);
+    if (min === null || numberValue === null || numberValue < min) return false;
+  }
+  if (maxValue !== "") {
+    const max = parseNumberOrNull(maxValue);
+    if (max === null || numberValue === null || numberValue > max) return false;
+  }
+  return true;
+}
+
+function applyLocalFilters(rows, filters) {
+  const uidNeedle = String(filters.trackUidContains || "").trim().toLowerCase();
+  const sourceNeedle = String(filters.sourceFileNameContains || "").trim().toLowerCase();
+  const hasAnyTimestampValues = toBoolFilterValue(filters.hasAnyTimestampValues);
+  const hasAnyPositiveTimeDelta = toBoolFilterValue(filters.hasAnyPositiveTimeDelta);
+
+  return rows.filter((row) => {
+    if (uidNeedle && !String(row.track_uid || "").toLowerCase().includes(uidNeedle)) return false;
+    if (sourceNeedle && !String(row.source_file_name || "").toLowerCase().includes(sourceNeedle)) return false;
+    if (filters.schemaVersion && row.schema_version !== filters.schemaVersion) return false;
+
+    if (
+      filters.dataSource &&
+      filters.dataSource !== "any" &&
+      String(row.data_source || "") !== filters.dataSource
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.summary_total_point_count,
+        filters.summaryTotalPointMin,
+        filters.summaryTotalPointMax
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.ingestion?.valid_point_count,
+        filters.ingestionValidPointMin,
+        filters.ingestionValidPointMax
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.ingestion?.rejected_point_count,
+        filters.ingestionRejectedPointMin,
+        filters.ingestionRejectedPointMax
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      hasAnyTimestampValues !== null &&
+      Boolean(row.ingestion?.has_any_timestamp_values) !== hasAnyTimestampValues
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.temporal?.missing_point_count_over_total_points_ratio,
+        filters.missingRatioMin,
+        filters.missingRatioMax
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.temporal?.unparsable_point_count_over_total_points_ratio,
+        filters.unparsableRatioMin,
+        filters.unparsableRatioMax
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.temporal?.duplicate_point_count_over_total_points_ratio,
+        filters.duplicateRatioMin,
+        filters.duplicateRatioMax
+      )
+    ) {
+      return false;
+    }
+
+    if (!matchesRange(row.temporal?.backtracking_point_count, filters.backtrackingPointCountMin, "")) {
+      return false;
+    }
+
+    if (
+      hasAnyPositiveTimeDelta !== null &&
+      Boolean(row.sampling?.has_any_positive_time_delta) !== hasAnyPositiveTimeDelta
+    ) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.sampling?.sequential_over_sorted_cluster_count_ratio,
+        filters.sequentialOverSortedClusterRatioMin,
+        filters.sequentialOverSortedClusterRatioMax
+      )
+    ) {
+      return false;
+    }
+
+    if (!matchesRange(row.sampling?.sorted_cluster_count, filters.sortedClusterCountMin, "")) {
+      return false;
+    }
+
+    if (
+      !matchesRange(
+        row.motion?.invalid_time_share_of_evaluated_time,
+        filters.invalidTimeShareMin,
+        filters.invalidTimeShareMax
+      )
+    ) {
+      return false;
+    }
+
+    if (!matchesRange(row.motion?.forward_valid_pair_count, filters.forwardValidPairCountMin, "")) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function compareValues(a, b) {
+  const aMissing = a === null || a === undefined;
+  const bMissing = b === null || b === undefined;
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
+
+  const aNum = parseNumberOrNull(a);
+  const bNum = parseNumberOrNull(b);
+  if (aNum !== null && bNum !== null) return aNum - bNum;
+
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortRows(rows, sort) {
+  const direction = sort.direction === "desc" ? -1 : 1;
+  return [...rows].sort((left, right) => {
+    const cmp = compareValues(readSortValue(left, sort.field), readSortValue(right, sort.field));
+    if (cmp !== 0) return cmp * direction;
+    return Number(right.id || 0) - Number(left.id || 0);
+  });
+}
+
 function renderTable() {
-  const columns = TABLE_PRESETS[state.selectedPreset];
+  const columns = TABLE_PRESETS[state.selectedPreset] || TABLE_PRESETS.tracks;
+  renderActiveSortState();
   const head = document.getElementById("tableHead");
   const body = document.getElementById("tableBody");
   head.innerHTML = "";
@@ -417,21 +668,49 @@ async function refreshTrackList() {
   state.listError = "";
   renderTable();
   renderPageMeta();
-  setStatus("Loading track list...");
 
   try {
-    const result = await dataAccess.listTracks({
-      filters: state.filters,
-      page: state.page,
-      pageSize: state.pageSize,
-      sort: state.sort,
-    });
+    let result;
+    if (state.config.clientCacheMode !== false) {
+      if (!state.cacheLoaded) {
+        setCacheLoadingOverlay(true, "Database loading...");
+        setStatus("Loading full track cache...");
+        const cached = await dataAccess.listAllTracks();
+        if (nonce !== listRequestNonce) return;
+        state.allRows = cached.rows;
+        state.cacheLoaded = true;
+        setCacheLoadingOverlay(false);
+        setStatus("");
+      }
+
+      const filtered = applyLocalFilters(state.allRows, state.appliedFilters);
+      const sorted = sortRows(filtered, state.sort);
+      const totalCount = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / state.pageSize));
+      if (state.page > totalPages) {
+        state.page = totalPages;
+      }
+      const rangeStart = (state.page - 1) * state.pageSize;
+      const rangeEnd = rangeStart + state.pageSize;
+      result = {
+        rows: sorted.slice(rangeStart, rangeEnd),
+        totalCount,
+      };
+    } else {
+      setCacheLoadingOverlay(false);
+      result = await dataAccess.listTracks({
+        filters: state.appliedFilters,
+        page: state.page,
+        pageSize: state.pageSize,
+        sort: state.sort,
+      });
+    }
+
     if (nonce !== listRequestNonce) return;
     state.rows = result.rows;
     state.totalCount = result.totalCount;
     renderTable();
     renderPageMeta();
-    setStatus(`Loaded ${result.rows.length} rows (${state.totalCount.toLocaleString()} total).`);
 
     if (state.selectedTrackUid && !state.rows.some((r) => r.track_uid === state.selectedTrackUid)) {
       state.selectedTrackUid = "";
@@ -440,6 +719,7 @@ async function refreshTrackList() {
     }
   } catch (error) {
     if (nonce !== listRequestNonce) return;
+    setCacheLoadingOverlay(false);
     state.listError = error.message || String(error);
     state.rows = [];
     state.totalCount = 0;
@@ -447,12 +727,59 @@ async function refreshTrackList() {
     renderPageMeta();
     setStatus(state.listError, true);
   } finally {
-    if (nonce === listRequestNonce) state.loadingList = false;
+    if (state.cacheLoaded) setCacheLoadingOverlay(false);
+    if (nonce === listRequestNonce) {
+      state.loadingList = false;
+      renderTable();
+      renderPageMeta();
+    }
   }
 }
 
 function kvCard(key, value) {
   return `<div class="kv"><div class="k">${key}</div><div class="v">${value ?? "—"}</div></div>`;
+}
+
+function humanizeKey(key) {
+  return String(key || "")
+    .replaceAll("_", " ")
+    .trim();
+}
+
+function formatDetailValue(key, value) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") {
+    const name = String(key || "");
+    if (name.includes("ratio") || name.includes("share") || name.includes("deviation")) {
+      return value.toFixed(3);
+    }
+    if (Number.isInteger(value)) return value.toLocaleString();
+    return value.toFixed(3);
+  }
+  return String(value);
+}
+
+function renderMetricSection(title, obj, excludeKeys = []) {
+  if (!obj) {
+    return `
+      <section class="detail-section">
+        <h4>${title}</h4>
+        <div class="kv-grid">${kvCard("status", "—")}</div>
+      </section>
+    `;
+  }
+
+  const excluded = new Set(excludeKeys);
+  const entries = Object.entries(obj).filter(([k]) => !excluded.has(k));
+  entries.sort(([a], [b]) => a.localeCompare(b));
+  const cells = entries.map(([k, v]) => kvCard(humanizeKey(k), formatDetailValue(k, v))).join("");
+  return `
+    <section class="detail-section">
+      <h4>${title}</h4>
+      <div class="kv-grid">${cells || kvCard("status", "—")}</div>
+    </section>
+  `;
 }
 
 function renderDetailPanel() {
@@ -468,60 +795,32 @@ function renderDetailPanel() {
   const detail = state.selectedDetail;
   label.textContent = detail.track_uid;
 
+  const tracksSection = renderMetricSection("tracks", {
+    id: detail.id,
+    track_uid: detail.track_uid,
+    data_source: detail.data_source,
+    schema_version: detail.schema_version,
+    generated_at_utc: detail.generated_at_utc,
+    source_file_name: detail.source_file_name,
+    summary_total_point_count: detail.summary_total_point_count,
+  });
+
+  const ingestionSection = renderMetricSection("ingestion_metrics", detail.ingestion);
+  const temporalSection = renderMetricSection("temporal_metrics", detail.temporal);
+  const samplingSection = renderMetricSection("sampling_metrics", detail.sampling);
+  const motionSection = renderMetricSection("motion_metrics", detail.motion);
+
   body.innerHTML = `
-    <section class="detail-section">
-      <h4>Identity</h4>
-      <div class="kv-grid">
-        ${kvCard("track_uid", detail.track_uid)}
-        ${kvCard("source_dataset", detail.source_dataset)}
-        ${kvCard("total_point_count", formatNum(detail.total_point_count))}
-        ${kvCard("valid_point_count", formatNum(detail.valid_point_count))}
-      </div>
-    </section>
-    <section class="detail-section">
-      <h4>Ingestion</h4>
-      <div class="kv-grid">
-        ${kvCard("rejected_point_count", formatNum(detail.rejected_point_count))}
-        ${kvCard("has_multiple_point_types", yesNo(detail.has_multiple_point_types))}
-        ${kvCard("has_any_timestamps", yesNo(detail.has_any_timestamps))}
-        ${kvCard("schema_version", detail.schema_version || "—")}
-      </div>
-    </section>
-    <section class="detail-section">
-      <h4>Temporal</h4>
-      <div class="kv-grid">
-        ${kvCard("has_any_temporal_anomaly", yesNo(detail.temporal?.has_any_temporal_anomaly))}
-        ${kvCard("has_any_temporal_block", yesNo(detail.temporal?.has_any_temporal_block))}
-        ${kvCard("has_any_temporal_single_point", yesNo(detail.temporal?.has_any_temporal_single_point))}
-        ${kvCard("missing_ratio", formatRatio(detail.temporal?.missing_ratio))}
-        ${kvCard("missing_count", formatNum(detail.temporal?.missing_count))}
-        ${kvCard("backtracking_count", formatNum(detail.temporal?.backtracking_count))}
-      </div>
-    </section>
-    <section class="detail-section">
-      <h4>Sampling</h4>
-      <div class="kv-grid">
-        ${kvCard("has_time_progression", yesNo(detail.sampling?.has_time_progression))}
-        ${kvCard("sampling_stability_ratio", formatRatio(detail.sampling?.sampling_stability_ratio))}
-        ${kvCard("cluster_count_sorted", formatNum(detail.sampling?.cluster_count_sorted))}
-        ${kvCard("max_relative_deviation", formatRatio(detail.sampling?.global_final_max_relative_deviation))}
-      </div>
-    </section>
-    <section class="detail-section">
-      <h4>Motion</h4>
-      <div class="kv-grid">
-        ${kvCard("has_motion_time_context", yesNo(detail.motion?.has_motion_time_context))}
-        ${kvCard("invalid_time_ratio", formatRatio(detail.motion?.invalid_time_ratio))}
-        ${kvCard("mean_speed_mps", formatFloat(detail.motion?.mean_speed_mps))}
-        ${kvCard("max_speed_mps", formatFloat(detail.motion?.max_speed_mps))}
-      </div>
-    </section>
+    ${tracksSection}
+    ${ingestionSection}
+    ${temporalSection}
+    ${samplingSection}
+    ${motionSection}
     <section class="detail-section">
       <h4>Artifacts</h4>
       <div class="artifact-actions">
         <button type="button" id="openInspectorBtn">Open deep inspector</button>
         <button type="button" id="downloadGpxBtn">Download raw GPX</button>
-        <button type="button" id="copyAuditPathBtn">Copy audit path</button>
       </div>
     </section>
   `;
@@ -532,14 +831,6 @@ function renderDetailPanel() {
   const downloadGpxBtn = document.getElementById("downloadGpxBtn");
   if (downloadGpxBtn) downloadGpxBtn.addEventListener("click", () => downloadRawGpx());
 
-  const copyAuditPathBtn = document.getElementById("copyAuditPathBtn");
-  if (copyAuditPathBtn) {
-    copyAuditPathBtn.addEventListener("click", async () => {
-      if (!detail.audit_detail_path) return;
-      await navigator.clipboard.writeText(detail.audit_detail_path);
-      setStatus("Copied audit path.");
-    });
-  }
 }
 
 async function selectTrack(trackUid) {
@@ -547,13 +838,12 @@ async function selectTrack(trackUid) {
   state.loadingDetail = true;
   state.detailError = "";
   renderTable();
-  setStatus(`Loading detail for ${trackUid}...`);
 
   if (detailCache.has(trackUid)) {
     state.selectedDetail = detailCache.get(trackUid);
     state.loadingDetail = false;
     renderDetailPanel();
-    setStatus(`Loaded cached detail for ${trackUid}.`);
+    setStatus("");
     return;
   }
 
@@ -568,7 +858,7 @@ async function selectTrack(trackUid) {
     }
     state.selectedDetail = detail;
     renderDetailPanel();
-    setStatus(`Loaded detail for ${trackUid}.`);
+    setStatus("");
   } catch (error) {
     if (nonce !== detailRequestNonce) return;
     state.detailError = error.message || String(error);
@@ -615,9 +905,17 @@ function renderInspector() {
   const listEl = document.getElementById("anomalyList");
   const jsonView = document.getElementById("jsonView");
 
-  const typeEntries = [{ value: "all", label: "all anomaly types" }];
-  const uniqueTypes = new Set(state.inspectorAnomalies.map((a) => `${a.type}:${a.subtype}`));
-  uniqueTypes.forEach((key) => typeEntries.push({ value: key, label: key }));
+  const typeEntries = [{ value: "all", label: "all finding types" }];
+  const findingTypeMap = new Map();
+  state.inspectorAnomalies.forEach((item) => {
+    const key = `${item.type}:${item.subtype}`;
+    if (!findingTypeMap.has(key)) {
+      findingTypeMap.set(key, item.findingClass === "diagnostic" ? "diagnostic" : "anomaly");
+    }
+  });
+  [...findingTypeMap.entries()].forEach(([key, findingClass]) =>
+    typeEntries.push({ value: key, label: `${findingClass} | ${key}` })
+  );
 
   typeSelect.innerHTML = "";
   typeEntries.forEach((entry) => {
@@ -629,14 +927,15 @@ function renderInspector() {
   typeSelect.value = state.inspectorFilteredType;
 
   const filtered = getFilteredInspectorAnomalies();
-  summary.textContent = `${filtered.length} anomalies`;
+  summary.textContent = `${filtered.length} findings`;
 
   listEl.innerHTML = "";
   filtered.forEach((entry) => {
     const div = document.createElement("article");
     div.className = "anomaly-item";
     if (entry.globalIdx === state.inspectorSelectedIdx) div.classList.add("selected");
-    div.innerHTML = `<strong>${entry.item.label}</strong><div>${entry.item.summary}</div><code>${entry.item.path}</code>`;
+    const findingClass = entry.item.findingClass === "diagnostic" ? "diagnostic" : "anomaly";
+    div.innerHTML = `<strong>${entry.item.label}</strong><span class="finding-badge ${findingClass}">${findingClass}</span><div>${entry.item.summary}</div><code>${entry.item.path}</code>`;
     div.addEventListener("click", () => {
       state.inspectorSelectedIdx = entry.globalIdx;
       renderInspector();
@@ -689,7 +988,7 @@ async function openInspector() {
     state.inspectorAnomalies = buildAnomalyIndex(auditJson);
     state.inspectorSelectedIdx = state.inspectorAnomalies.length ? 0 : -1;
     renderInspector();
-    setStatus(`Deep inspector loaded (${state.inspectorAnomalies.length} indexed anomalies).`);
+    setStatus(`Deep inspector loaded (${state.inspectorAnomalies.length} indexed findings).`);
   } catch (error) {
     state.inspectorError = error.message || String(error);
     document.getElementById("anomalyList").textContent = state.inspectorError;

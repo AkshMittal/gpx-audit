@@ -3,6 +3,8 @@ const DEFAULT_CONFIG = {
   supabaseAnonKey: "",
   pageSize: 25,
   maxPageSize: 100,
+  clientCacheMode: true,
+  fetchBatchSize: 1000,
 };
 
 function readWindowConfig() {

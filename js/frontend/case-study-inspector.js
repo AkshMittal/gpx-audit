@@ -2,6 +2,10 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function hasOwn(obj, key) {
+  return Boolean(obj && Object.prototype.hasOwnProperty.call(obj, key));
+}
+
 function addTemporalAnomalies(auditJson, out) {
   const temporalOrder = auditJson?.audit?.temporal?.temporalOrder || {};
   const groups = ["missing", "unparsable", "duplicate", "backtracking"];
@@ -15,27 +19,49 @@ function addTemporalAnomalies(auditJson, out) {
       const fromIndex = block?.fromIndex ?? block?.startIndex ?? null;
       const toIndex = block?.toIndex ?? block?.endIndex ?? null;
       const length = block?.length ?? (fromIndex !== null && toIndex !== null ? toIndex - fromIndex + 1 : null);
+      const blockHighlightTerm =
+        fromIndex !== null
+          ? hasOwn(block, "fromIndex")
+            ? `"fromIndex": ${fromIndex}`
+            : `"startIndex": ${fromIndex}`
+          : toIndex !== null
+            ? hasOwn(block, "toIndex")
+              ? `"toIndex": ${toIndex}`
+              : `"endIndex": ${toIndex}`
+            : length !== null
+              ? `"length": ${length}`
+              : `"${group}"`;
       out.push({
         type: "temporal",
         subtype: group,
         kind: "block",
+        findingClass: "anomaly",
         label: `${group}.blocks[${idx}]`,
         path: `audit.temporal.temporalOrder.${group}.blocks[${idx}]`,
         summary: `len=${length ?? "?"}, from=${fromIndex ?? "?"}, to=${toIndex ?? "?"}`,
-        highlightTerm: `"${group}"`,
+        highlightTerm: blockHighlightTerm,
       });
     });
 
     singles.forEach((single, idx) => {
       const gpxIndex = single?.gpxIndex ?? single?.index ?? single;
+      const singleHighlightTerm =
+        gpxIndex !== null && gpxIndex !== undefined
+          ? hasOwn(single, "gpxIndex")
+            ? `"gpxIndex": ${gpxIndex}`
+            : hasOwn(single, "index")
+              ? `"index": ${gpxIndex}`
+              : `"${gpxIndex}"`
+          : `"${group}"`;
       out.push({
         type: "temporal",
         subtype: group,
         kind: "single",
+        findingClass: "anomaly",
         label: `${group}.singlePoints[${idx}]`,
         path: `audit.temporal.temporalOrder.${group}.singlePoints[${idx}]`,
         summary: `gpxIndex=${gpxIndex ?? "?"}`,
-        highlightTerm: `"${group}"`,
+        highlightTerm: singleHighlightTerm,
       });
     });
   }
@@ -57,15 +83,24 @@ function addSamplingAnomalies(auditJson, out) {
         cluster?.count ??
         cluster?.membersCount ??
         (Array.isArray(cluster?.members) ? cluster.members.length : null);
-      const valueMs = cluster?.valueMs ?? cluster?.centroidMs ?? cluster?.value;
+      const centerSec =
+        cluster?.centerSec ??
+        (typeof cluster?.centerMs === "number" ? cluster.centerMs / 1000 : null) ??
+        null;
       out.push({
         type: "sampling",
         subtype: "clustering",
         kind: "cluster",
+        findingClass: "diagnostic",
         label: `${candidate.title}[${idx}]`,
         path: `audit.sampling.time.clustering.${candidate.key}[${idx}]`,
-        summary: `valueMs=${valueMs ?? "?"}, count=${count ?? "?"}`,
-        highlightTerm: `"${candidate.key}"`,
+        summary: `centerSec=${centerSec ?? "?"}, count=${count ?? "?"}`,
+        highlightTerm:
+          centerSec !== null
+            ? `"centerSec": ${centerSec}`
+            : count !== null
+              ? `"count": ${count}`
+              : `"${candidate.key}"`,
       });
     });
   }
