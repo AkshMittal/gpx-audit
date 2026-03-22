@@ -4,9 +4,10 @@ const vm = require("vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const TEST_DIR = path.join(ROOT, "test-gpx-adversarial");
+const FIXTURE_DOC_DIR = path.join(ROOT, "fixtures", "adversarial-custom-test");
 const JSON_DIR = path.resolve(ROOT, "..", "json");
-const REPORT_PATH = path.join(TEST_DIR, "REPORT.md");
-const EXPECTED_PATH = path.join(TEST_DIR, "EXPECTED.md");
+const REPORT_PATH = path.join(FIXTURE_DOC_DIR, "REPORT.md");
+const EXPECTED_PATH = path.join(FIXTURE_DOC_DIR, "EXPECTED.md");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -115,28 +116,28 @@ function metric(payload) {
   return {
     totalPoints: ingestion.counts ? ingestion.counts.totalPointCount : null,
     hasMultiplePointTypes: ingestion.context ? ingestion.context.hasMultiplePointTypes : null,
-    rejectedCoords: ingestion.rejections ? ingestion.rejections.count : null,
-    missingTs: temporal.temporalOrder && temporal.temporalOrder.missing ? temporal.temporalOrder.missing.count : null,
+    rejectedCoords: ingestion.counts ? ingestion.counts.rejectedPointCount : null,
+    missingTs: temporal.temporalOrder && temporal.temporalOrder.missing ? temporal.temporalOrder.missing.pointCount : null,
     missingBlocks: temporal.temporalOrder && temporal.temporalOrder.missing ? temporal.temporalOrder.missing.blocks.length : null,
-    missingSingles: temporal.temporalOrder && temporal.temporalOrder.missing ? temporal.temporalOrder.missing.singlePointCount : null,
-    unparsableTs: temporal.temporalOrder && temporal.temporalOrder.unparsable ? temporal.temporalOrder.unparsable.count : null,
+    missingSingles: temporal.temporalOrder && temporal.temporalOrder.missing ? temporal.temporalOrder.missing.isolatedPointCount : null,
+    unparsableTs: temporal.temporalOrder && temporal.temporalOrder.unparsable ? temporal.temporalOrder.unparsable.pointCount : null,
     unparsableBlocks: temporal.temporalOrder && temporal.temporalOrder.unparsable ? temporal.temporalOrder.unparsable.blocks.length : null,
-    unparsableSingles: temporal.temporalOrder && temporal.temporalOrder.unparsable ? temporal.temporalOrder.unparsable.singlePointCount : null,
-    duplicateTs: temporal.temporalOrder && temporal.temporalOrder.duplicate ? temporal.temporalOrder.duplicate.count : null,
+    unparsableSingles: temporal.temporalOrder && temporal.temporalOrder.unparsable ? temporal.temporalOrder.unparsable.isolatedPointCount : null,
+    duplicateTs: temporal.temporalOrder && temporal.temporalOrder.duplicate ? temporal.temporalOrder.duplicate.pointCount : null,
     duplicateBlocks: temporal.temporalOrder && temporal.temporalOrder.duplicate ? temporal.temporalOrder.duplicate.blocks.length : null,
-    duplicateSingles: temporal.temporalOrder && temporal.temporalOrder.duplicate ? temporal.temporalOrder.duplicate.singlePointCount : null,
-    backtracking: temporal.temporalOrder && temporal.temporalOrder.backtracking ? temporal.temporalOrder.backtracking.count : null,
+    duplicateSingles: temporal.temporalOrder && temporal.temporalOrder.duplicate ? temporal.temporalOrder.duplicate.isolatedPointCount : null,
+    backtracking: temporal.temporalOrder && temporal.temporalOrder.backtracking ? temporal.temporalOrder.backtracking.pointCount : null,
     backtrackingBlocks: temporal.temporalOrder && temporal.temporalOrder.backtracking ? temporal.temporalOrder.backtracking.blocks.length : null,
-    backtrackingSingles: temporal.temporalOrder && temporal.temporalOrder.backtracking ? temporal.temporalOrder.backtracking.singlePointCount : null,
-    positiveDeltas: sampling.time && sampling.time.deltaStatistics ? sampling.time.deltaStatistics.count : null,
-    clusterCountSorted: sampling.time && sampling.time.clustering ? sampling.time.clustering.clusterCountSorted : null,
+    backtrackingSingles: temporal.temporalOrder && temporal.temporalOrder.backtracking ? temporal.temporalOrder.backtracking.isolatedPointCount : null,
+    positiveDeltas: sampling.time && sampling.time.deltaStatistics ? sampling.time.deltaStatistics.positiveDeltaCount : null,
+    clusterCountSorted: sampling.time && sampling.time.clustering ? sampling.time.clustering.sortedClusterCount : null,
     maxDeltaMs: sampling.time && sampling.time.deltaStatistics ? sampling.time.deltaStatistics.maxMs : null,
-    motionForwardValid: motion.pairCounts ? motion.pairCounts.forwardValidCount : null,
-    motionBackward: motion.rejections ? motion.rejections.backwardCount : null,
-    motionZeroDelta: motion.rejections ? motion.rejections.zeroTimeDeltaCount : null,
-    motionInvalidDistance: motion.rejections ? motion.rejections.nonFiniteDistanceCount : null,
-    motionInvalidTimeRatio: motion.time ? motion.time.invalidTimeRatio : null,
-    motionTotalValidDistanceMeters: motion.distance ? motion.distance.totalValidDistanceMeters : null
+    motionForwardValid: motion.evaluatedPairs ? motion.evaluatedPairs.forwardValidPairCount : null,
+    motionBackward: motion.rejections ? motion.rejections.backwardTimePairCount : null,
+    motionZeroDelta: motion.rejections ? motion.rejections.zeroTimeDeltaPairCount : null,
+    motionInvalidDistance: motion.rejections ? motion.rejections.nonFiniteDistancePairCount : null,
+    motionInvalidTimeRatio: motion.time ? motion.time.invalidTimeShareOfEvaluatedTime : null,
+    motionTotalValidDistanceMeters: motion.distance ? motion.distance.totalForwardValidDistanceMeters : null
   };
 }
 
@@ -790,6 +791,7 @@ function renderReport(results) {
 
 function main() {
   ensureDir(TEST_DIR);
+  ensureDir(FIXTURE_DOC_DIR);
   ensureDir(JSON_DIR);
   loadBrowserModules();
 
