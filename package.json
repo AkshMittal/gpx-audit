@@ -7,7 +7,12 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "upload-audit-json": "node scripts/upload-audit-json-to-storage.js",
+    "import-audit-hikr-12k": "node scripts/import-audit-hikr-12k.js",
+    "import-audit-adversarial": "node scripts/import-audit-adversarial-custom-test.js",
+    "upload-custom-test-fixtures": "node scripts/upload-custom-test-fixtures-to-storage.js",
+    "generate-adversarial-custom-test-audits": "node scripts/run-csv-pilot.js --phase generate --run-name adversarial-custom-test --parsed-dir fixtures/adversarial-custom-test/gpx"
   },
   "repository": {
     "type": "git",
