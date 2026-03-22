@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+/**
+ * Shared audit JSON → Supabase upsert (tracks + 4 child tables).
+ * Used by import-audit-hikr-12k.js and import-audit-adversarial-custom-test.js.
+ */
 "use strict";
 
 const fs = require("fs");
@@ -73,12 +77,15 @@ function listAuditFilesInDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
     throw new Error(`Directory not found: ${dirPath}`);
   }
-  const files = fs
+  return fs
     .readdirSync(dirPath, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".audit.json"))
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (entry.name.endsWith(".audit.json") || entry.name.endsWith(".audit.v2.json"))
+    )
     .map((entry) => path.join(dirPath, entry.name))
     .sort((a, b) => a.localeCompare(b));
-  return files;
 }
 
 function inferTrackUid(filePath, payload) {
@@ -107,7 +114,7 @@ function assertRatioInRange(value, fieldName) {
   }
 }
 
-function buildRowsFromAudit(payload, filePath, auditRawText) {
+function buildRowsFromAudit(payload, filePath, auditRawText, dataSource) {
   const ingestion = get(payload, "audit.ingestion", {});
   const temporal = get(payload, "audit.temporal", {});
   const temporalOrder = get(temporal, "temporalOrder", {});
@@ -151,6 +158,7 @@ function buildRowsFromAudit(payload, filePath, auditRawText) {
 
   const trackRow = {
     track_uid: trackUid,
+    data_source: dataSource,
     schema_version: schemaVersion,
     generated_at_utc: get(payload, "metadata.generatedAtUtc", null),
     source_file_name: get(payload, "metadata.source.fileName", null),
@@ -263,10 +271,14 @@ function buildRowsFromAudit(payload, filePath, auditRawText) {
 
     distance_consecutive_pair_count:
       toIntOrNull(get(samplingDistance, "pairInspection.consecutivePairCount", 0)) ?? 0,
-    distance_invalid_distance_rejection_count:
+    invalid_distance_rejection_count:
       toIntOrNull(get(samplingDistance, "pairInspection.rejections.invalidDistance.count", 0)) ?? 0,
-    geometry_only_delta_count:
-      toIntOrNull(get(samplingDistance, "geometryOnly.deltaCount", 0)) ?? 0,
+    geometry_conditioned_delta_count:
+      toIntOrNull(
+        get(samplingDistance, "geometryConditioned.deltaCount") ??
+          get(samplingDistance, "geometryOnly.deltaCount") ??
+          get(samplingDistance, "consecutiveGeometry.deltaCount", 0)
+      ) ?? 0,
     time_conditioned_delta_count:
       toIntOrNull(get(samplingDistance, "timeConditioned.deltaCount", 0)) ?? 0,
   };
@@ -374,7 +386,15 @@ function printDryRunPreview(filePath, rows) {
   console.log(JSON.stringify(preview, null, 2));
 }
 
-async function main() {
+/**
+ * @param {{ dataSource: string, scriptName?: string }} options
+ */
+async function runImportAuditCli(options) {
+  const { dataSource, scriptName = "import-audit" } = options;
+  if (!dataSource || typeof dataSource !== "string") {
+    throw new Error("runImportAuditCli: dataSource is required");
+  }
+
   const args = parseArgs(process.argv.slice(2));
   parseDotEnv(path.resolve(process.cwd(), ".env"));
 
@@ -386,7 +406,9 @@ async function main() {
   const dirArg = args.dir ? path.resolve(process.cwd(), args.dir) : null;
 
   if (!fileArg && !dirArg) {
-    throw new Error("Provide either --file <path> or --dir <path>");
+    throw new Error(
+      `Provide either --file <path> or --dir <path> (${scriptName}; data_source=${dataSource})`
+    );
   }
   if (fileArg && dirArg) {
     throw new Error("Use only one of --file or --dir");
@@ -412,13 +434,15 @@ async function main() {
     supabase = createClient(url, serviceRole, { auth: { persistSession: false } });
   }
 
+  console.log(`[${scriptName}] data_source=${JSON.stringify(dataSource)} dryRun=${isDryRun}`);
+
   let success = 0;
   let failed = 0;
   for (const filePath of sliced) {
     try {
       const raw = fs.readFileSync(filePath, "utf8");
       const payload = JSON.parse(raw);
-      const rows = buildRowsFromAudit(payload, filePath, raw);
+      const rows = buildRowsFromAudit(payload, filePath, raw, dataSource);
 
       if (isDryRun) {
         printDryRunPreview(filePath, rows);
@@ -444,7 +468,8 @@ async function main() {
   if (failed > 0) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error.message || String(error));
-  process.exit(1);
-});
+module.exports = {
+  runImportAuditCli,
+  buildRowsFromAudit,
+  listAuditFilesInDir,
+};
