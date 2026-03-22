@@ -1,7 +1,26 @@
+# Dependencies & secrets
 node_modules/
-runs/
-datasets/
-*.log
-.tools/
 .env
 .env.*
+
+# Local tooling (not shared)
+.tools/
+.vscode/
+.cursor/
+
+# Logs & scratch
+*.log
+toAdd.txt
+
+# Hikr bulk corpus: CSV source, parsed GPX, generated audit JSON from large runs
+# (Custom / adversarial fixtures live under fixtures/ and stay tracked.)
+datasets/
+
+# Named CSV at repo root (Hikr export)
+/gpx-tracks-from-hikr*.csv
+
+# Generated run outputs (pilot, full runs, etc.)
+runs/
+
+# Workbench visualization notes — kept on main branch workbench
+visualization-notes.html
