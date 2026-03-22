@@ -4,9 +4,10 @@ const vm = require("vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const TEST_DIR = path.join(ROOT, "test-gpx-adversarial");
+const FIXTURE_DOC_DIR = path.join(ROOT, "fixtures", "adversarial-custom-test");
 const JSON_DIR = path.resolve(ROOT, "..", "json");
-const REPORT_PATH = path.join(TEST_DIR, "REPORT.md");
-const EXPECTED_PATH = path.join(TEST_DIR, "EXPECTED.md");
+const REPORT_PATH = path.join(FIXTURE_DOC_DIR, "REPORT.md");
+const EXPECTED_PATH = path.join(FIXTURE_DOC_DIR, "EXPECTED.md");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -790,6 +791,7 @@ function renderReport(results) {
 
 function main() {
   ensureDir(TEST_DIR);
+  ensureDir(FIXTURE_DOC_DIR);
   ensureDir(JSON_DIR);
   loadBrowserModules();
 

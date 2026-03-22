@@ -8,6 +8,16 @@ GPX files are **copies** of `test-gpx-adversarial/adv-*.gpx` renamed so `track_u
 
 Files live under **`fixtures/adversarial-custom-test/`** (tracked in git) — not under `datasets/` (gitignored).
 
+## Expected outcomes + run report (`EXPECTED.md`, `REPORT.md`)
+
+Assertion targets and the latest harness run output for the 20 adversarial cases live **here** (same folder as the `custom-test` cohort). They are produced by:
+
+```bash
+node scripts/generate-gpx-adversarial-suite.js
+```
+
+That script writes **`adv-*.gpx`** under `test-gpx-adversarial/` and writes **`EXPECTED.md`** + **`REPORT.md`** in this directory.
+
 ## Regenerate audit JSON (v2)
 
 From repo root:
