@@ -8,7 +8,7 @@ The sampling module performs an observational audit of time-delta sampling behav
 
 - Time audit and distance audit are separated.
 - Time-conditioned metrics require positive time progression.
-- Geometry-only distance metrics are always available from consecutive coordinate pairs.
+- Geometry-conditioned (valid-distance) distance metrics are always available from consecutive coordinate pairs.
 - Clustering uses insertion-time threshold checks and final-center spread summaries.
 
 ## Time context fields
@@ -99,13 +99,13 @@ Each cluster object includes:
 
 - `pairInspection.consecutivePairCount`
 - `pairInspection.rejections.invalidDistance.count`
-- `geometryOnly.deltaCount`
+- `geometryConditioned.deltaCount`
 - `timeConditioned.deltaCount`
 
 ## Notes
 
 - Time delta collection uses only positive deltas.
-- Distance audit allows geometry-only fallback when time progression is absent.
+- Distance audit uses geometry-conditioned deltas when time progression is absent.
 - Module output is observational and deterministic for same input order.
 omfg # Sampling Audit Module
 
@@ -119,7 +119,7 @@ This module serves to:
 - Analyze time sampling patterns by collecting positive time deltas
 - Compute distance deltas between consecutive valid coordinate pairs
 - Generate joint time-distance pairs for correlation analysis
-- Distinguish between time-conditioned and geometry-only distance analysis
+- Distinguish between time-conditioned and geometry-conditioned (valid-distance) distance analysis
 - Provide detailed audit statistics and flagged events for diagnostic purposes
 
 ## Functions
@@ -139,14 +139,14 @@ Audits time sampling behavior and distance deltas in an array of points.
   - `minDeltaMs` (number|null): Minimum time delta in milliseconds, or `null` if no deltas
   - `maxDeltaMs` (number|null): Maximum time delta in milliseconds, or `null` if no deltas
   - `medianDeltaMs` (number|null): Median time delta in milliseconds, or `null` if no deltas
-  - `distanceDeltasM` (Array<number>): Primary distance delta array (time-conditioned if `hasTimeProgression`, else geometry-only)
-  - `distanceDeltasMGeometryOnly` (Array<number>): Always-computed geometry-only distance deltas
+  - `distanceDeltasM` (Array<number>): Primary distance delta array (time-conditioned if `hasTimeProgression`, else geometry-conditioned)
+  - `distanceDeltasMGeometryConditioned` (Array<number>): Always-computed distance deltas for consecutive valid-coordinate pairs (valid-distance / geometry conditioned; not time-gated)
   - `distanceDeltasMTimeConditioned` (Array<number>): Time-conditioned distance deltas (only when `hasTimeProgression`)
   - `timeDistancePairs` (Array<{dtSec: number, ddMeters: number}>): Joint time-distance pairs (only when `hasTimeProgression`)
   - `hasTimeProgression` (boolean): `true` if at least one positive consecutive time delta observed, `false` otherwise
   - `hasValidTimestamps` (boolean): Descriptive flag indicating presence of any parseable timestamp
   - `rejectedTimestampPairsDeltaLeqZero` (number): Count of timestamp pairs rejected due to non-positive delta
-  - `consecutivePointPairsConsidered` (number): Count of consecutive point pairs considered for geometry-only distance
+  - `consecutivePointPairsConsidered` (number): Count of consecutive point pairs considered for geometry-conditioned distance
   - `rejectedDistanceInvalidOrZero` (number): Count of distance deltas rejected due to invalid or zero values
   - `jointPairsWithBothTimestamps` (number): Count of pairs with both timestamps in joint audit
   - `jointRejectedMissingTimestamp` (number): Count of joint pairs rejected due to missing timestamp
@@ -196,13 +196,13 @@ The module operates in two distinct modes based on `hasTimeProgression`:
 #### When `hasTimeProgression === false`:
 - Does NOT collect time deltas
 - Does NOT collect joint time-distance pairs
-- DOES collect geometry-only distance deltas (all consecutive valid coordinate pairs)
-- `distanceDeltasM` contains geometry-only deltas
+- DOES collect geometry-conditioned distance deltas (all consecutive valid coordinate pairs)
+- `distanceDeltasM` contains geometry-conditioned deltas
 
-**Geometry-only distance deltas** are:
+**Geometry-conditioned distance deltas** are:
 - Calculated purely from consecutive valid coordinate pairs
 - Independent of timestamps
-- Explicitly separated from time-conditioned distance deltas in code
+- Explicitly separated from time-conditioned distance deltas in code (condition = valid finite distance, not timestamp rules)
 
 ## Audit Process
 
@@ -214,11 +214,11 @@ A first pass determines if any parseable timestamps exist (`hasValidTimestamps`)
 
 The module iterates through all points sequentially:
 
-#### Geometry-Only Distance (Always Computed)
+#### Geometry-conditioned distance (always computed)
 
 For every consecutive pair of points with valid coordinates:
 - Computes Haversine distance
-- Adds to `distanceDeltasMGeometryOnly` if finite and > 0
+- Adds to `distanceDeltasMGeometryConditioned` if finite and > 0
 - Tracks rejection count for invalid/zero distances
 
 #### Time Delta Collection (When Timestamps Present)
@@ -264,7 +264,7 @@ Positive deltas collected: <number>
 Rejected (delta <= 0): <number>
 ========================
 
-=== Distance Delta Audit (time-conditioned|geometry-only) ===
+=== Distance Delta Audit (time-conditioned|geometry-conditioned) ===
 Distance deltas collected: <number>
 [Consecutive point pairs considered: <number>]
 [Rejected (invalid or zero distance): <number>]
@@ -301,13 +301,13 @@ Rejected:
 
 - `hasTimeProgression` is set to `true` only when at least one positive consecutive time delta is observed
 - If timestamps exist but show no positive progression, a console message is logged: "Timestamps detected but show no positive progression; time-based analysis disabled."
-- This ensures geometry-only distance analysis is always available when needed
+- This ensures geometry-conditioned distance analysis is always available when needed
 
 ### Distance Delta Separation
 
-- `distanceDeltasMGeometryOnly`: Always computed for all consecutive valid coordinate pairs
+- `distanceDeltasMGeometryConditioned`: Always computed for all consecutive valid coordinate pairs
 - `distanceDeltasMTimeConditioned`: Only computed when `hasTimeProgression === true` and dt > 0
-- `distanceDeltasM`: Primary array for charts/exports, set to time-conditioned when progression exists, else geometry-only
+- `distanceDeltasM`: Primary array for charts/exports, set to time-conditioned when progression exists, else geometry-conditioned
 
 ## Export Functions
 
@@ -378,5 +378,5 @@ Points passed to this module must have:
 - This module is purely observational and does not modify data
 - All distance calculations use the Haversine formula (great-circle distance)
 - The module processes points sequentially in array order
-- Geometry-only distance deltas are always computed regardless of timestamp status
+- Geometry-conditioned distance deltas are always computed regardless of timestamp status
 - Time-based analysis is only enabled when positive time progression is detected

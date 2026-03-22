@@ -12,7 +12,7 @@ This repository uses two long-lived branches with explicit ownership.
 
 Allowed in `main`:
 - `js/pipeline/*`
-- core docs/specs
+- `docs/project/` (core specs & reference); `docs/reports/` for dated run notes
 - custom test GPX fixtures and expected results
 
 Not allowed in `main`:

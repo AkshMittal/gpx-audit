@@ -64,6 +64,9 @@ Storage/hash fields (from importer workflow, not pipeline payload directly):
 External identifier:
 - `tracks.track_uid` <- importer-derived UID
 
+Dataset / cohort (not in audit JSON; set by import CLI):
+- `tracks.data_source` <- string, e.g. `hikr_12k` (`scripts/import-audit-hikr-12k.js`) or `custom-test` (`scripts/import-audit-adversarial-custom-test.js`)
+
 ---
 
 ## 2) `ingestion_metrics`
@@ -162,13 +165,14 @@ Normalization summary:
 
 Distance summary:
 - `distance_consecutive_pair_count` <- `audit.sampling.distance.pairInspection.consecutivePairCount`
-- `distance_invalid_distance_rejection_count` <- `audit.sampling.distance.pairInspection.rejections.invalidDistance.count`
-- `geometry_only_delta_count` <- `audit.sampling.distance.geometryOnly.deltaCount`
+- `invalid_distance_rejection_count` <- `audit.sampling.distance.pairInspection.rejections.invalidDistance.count`
+- `geometry_conditioned_delta_count` <- `audit.sampling.distance.geometryConditioned.deltaCount` (legacy JSON keys `geometryOnly` / `consecutiveGeometry` accepted by importer)
 - `time_conditioned_delta_count` <- `audit.sampling.distance.timeConditioned.deltaCount`
 
 Notes:
 - If `audit.sampling.time.normalization` is `null`, map all normalization columns to `null`.
 - Do not map `clustering.clusters` array or non-positive-delta events array.
+- **DB column rename:** If your `sampling_metrics` table still has `geometry_only_delta_count`, rename it to `geometry_conditioned_delta_count` (or add the new column and backfill) before using the updated importer output shape.
 
 ---
 
@@ -211,4 +215,20 @@ Notes:
 - Never coerce missing objects to fake zeros except where schema defines 0 as meaningful.
 - Ensure ratio fields remain in `[0,1]` when numeric; reject row if out-of-bounds.
 - Upsert children only after successful `tracks` upsert and FK resolution.
+
+---
+
+## Storage: audit JSON only (no GPX)
+
+To refresh **audit JSON** objects in the `audit-details` bucket (same paths as `auditObjectPath(trackUid, payload)`), without touching `raw-gpx`:
+
+```bash
+node scripts/upload-audit-json-to-storage.js --dir runs/csv-v2-full-generate-min100-b500-v2/json
+```
+
+Uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env`. Uploads with `upsert: true` (replaces existing objects at the same path). Updates `tracks.audit_detail_path` and `tracks.audit_detail_hash` unless `--skip-db-update`.
+
+Options: `--audit-file <path>`, `--limit N`, `--offset N`, `--dry-run`, `--audit-bucket NAME`.
+
+NPM: `npm run upload-audit-json -- --dir <dir> ...`
 

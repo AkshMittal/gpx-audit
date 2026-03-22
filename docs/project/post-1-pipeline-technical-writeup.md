@@ -196,7 +196,7 @@ Core outputs:
 - Delta statistics (`count`, `minMs`, `medianMs`, `maxMs`)
 - Clustering metrics (`clusterCountSorted`, `clusterCountSequential`, stability ratios)
 - Normalization metrics (`globalFinal*Deviation*`)
-- Distance delta accounting (geometry-only and time-conditioned counts)
+- Distance delta accounting (geometry-conditioned and time-conditioned counts)
 
 ### 4) Motion Audit
 
