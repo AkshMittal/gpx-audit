@@ -37,7 +37,7 @@ Implemented:
 - Sampling audit (2% relative clustering + drift diagnostics)
 - Motion audit (anchored pair-valid metrics)
 - Unified JSON export contract
-- Frontend inspection workbench + visualization notes/methodology links
+- Single-GPX inspection workbench on `main` branch; methodology links
 - 12k-scale case study execution pipeline and reporting scripts
 
 Positioning:

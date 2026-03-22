@@ -7,8 +7,8 @@
  * Exposes: initializeAuditMap(pointsArray)
  *
  * Drag / toggle / positioning of the container is handled separately
- * in index.html (DOMContentLoaded), so the map panel is interactive
- * even before a GPX file is loaded.
+ * by the host page (e.g. single-GPX workbench on `main`), so the map
+ * panel can be interactive before a GPX file is loaded.
  */
 
 /* Previous map instance (module-level so we can destroy on reload) */

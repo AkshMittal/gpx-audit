@@ -60,5 +60,5 @@ The case study is designed for **anon + RLS read-only** access. The UI does not 
 
 ## Related docs
 
-- [`import-audit-supabase.md`](import-audit-supabase.md) — import scripts and `data_source` / backfill.
-- [`supabase-v2-upsert-mapping.md`](supabase-v2-upsert-mapping.md) — column mapping from audit JSON.
+- [`../supabase/import-audit-supabase.md`](../supabase/import-audit-supabase.md) — import scripts and `data_source` / backfill.
+- [`../supabase/supabase-v2-upsert-mapping.md`](../supabase/supabase-v2-upsert-mapping.md) — column mapping from audit JSON.
