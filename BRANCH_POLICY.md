@@ -12,7 +12,7 @@ This repository uses two long-lived branches with explicit ownership.
 
 Allowed in `main`:
 - `js/pipeline/*`
-- core docs/specs
+- `docs/project/` (pipeline, supabase, roadmap; see `docs/project/README.md`); `docs/reports/` for dated run notes
 - custom test GPX fixtures and expected results
 
 Not allowed in `main`:
@@ -34,3 +34,12 @@ Never commit generated/runtime artifacts, including:
 - logs and local env files
 
 `.gitignore` must keep these excluded on both branches.
+
+## Merge discipline (`case-study` ↔ `main`)
+
+When promoting work from `case-study` to `main`:
+
+- Prefer **cherry-picking** reusable pipeline code, schema docs, and validation assets — not wholesale branch merges that drag in UI or case-study-only tooling.
+- **`main` is canonical** for `docs/project/product-roadmap.md`, `docs/reports/README.md`, and this file (`BRANCH_POLICY.md`). Do not overwrite `main` versions from `case-study`; merge `main` → `case-study` or resolve conflicts in favor of `main` for those paths.
+- **Do not** land case-study-only scripts (DB/storage import, upload, orchestration) on `main`.
+- **`docs/project/supabase/**`** and other import-focused writeups are **case-study–native**; treat them as out of scope for a “pipeline-only” promotion to `main` unless you explicitly decide otherwise.
