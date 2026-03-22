@@ -116,6 +116,7 @@ The Sampling Audit Module performs an observational audit pass on time sampling 
 ## Purpose
 
 This module serves to:
+
 - Analyze time sampling patterns by collecting positive time deltas
 - Compute distance deltas between consecutive valid coordinate pairs
 - Generate joint time-distance pairs for correlation analysis
@@ -129,19 +130,21 @@ This module serves to:
 Audits time sampling behavior and distance deltas in an array of points.
 
 **Parameters:**
+
 - `points` (Array): Array of point objects with `timeRaw`, `lat`, `lon` properties
 - `gpxFilename` (string, optional): Optional GPX filename (without extension) for download naming
 
 **Returns:**
+
 - `Object` containing:
-  - `timeDeltasMs` (Array<number>): Array of positive time deltas in milliseconds
+  - `timeDeltasMs` (Array): Array of positive time deltas in milliseconds
   - `totalDeltaCount` (number): Count of positive time deltas collected
   - `minDeltaMs` (number|null): Minimum time delta in milliseconds, or `null` if no deltas
   - `maxDeltaMs` (number|null): Maximum time delta in milliseconds, or `null` if no deltas
   - `medianDeltaMs` (number|null): Median time delta in milliseconds, or `null` if no deltas
-  - `distanceDeltasM` (Array<number>): Primary distance delta array (time-conditioned if `hasTimeProgression`, else geometry-conditioned)
-  - `distanceDeltasMGeometryConditioned` (Array<number>): Always-computed distance deltas for consecutive valid-coordinate pairs (valid-distance / geometry conditioned; not time-gated)
-  - `distanceDeltasMTimeConditioned` (Array<number>): Time-conditioned distance deltas (only when `hasTimeProgression`)
+  - `distanceDeltasM` (Array): Primary distance delta array (time-conditioned if `hasTimeProgression`, else geometry-conditioned)
+  - `distanceDeltasMGeometryConditioned` (Array): Always-computed distance deltas for consecutive valid-coordinate pairs (valid-distance / geometry conditioned; not time-gated)
+  - `distanceDeltasMTimeConditioned` (Array): Time-conditioned distance deltas (only when `hasTimeProgression`)
   - `timeDistancePairs` (Array<{dtSec: number, ddMeters: number}>): Joint time-distance pairs (only when `hasTimeProgression`)
   - `hasTimeProgression` (boolean): `true` if at least one positive consecutive time delta observed, `false` otherwise
   - `hasValidTimestamps` (boolean): Descriptive flag indicating presence of any parseable timestamp
@@ -158,6 +161,7 @@ Audits time sampling behavior and distance deltas in an array of points.
     - `delta` (number): Time delta in milliseconds (≤ 0)
 
 **Side Effects:**
+
 - Logs audit results to console with detailed breakdowns for each pass
 
 ### `haversineDistance(lat1, lon1, lat2, lon2)`
@@ -165,12 +169,14 @@ Audits time sampling behavior and distance deltas in an array of points.
 Calculates the great-circle distance between two points on Earth using the Haversine formula.
 
 **Parameters:**
+
 - `lat1` (number): Latitude of first point in degrees
 - `lon1` (number): Longitude of first point in degrees
 - `lat2` (number): Latitude of second point in degrees
 - `lon2` (number): Longitude of second point in degrees
 
 **Returns:**
+
 - `number`: Distance in meters
 
 ## Key Concepts
@@ -178,6 +184,7 @@ Calculates the great-circle distance between two points on Earth using the Haver
 ### Time Progression vs. Timestamp Presence
 
 The module distinguishes between:
+
 - **Timestamp presence** (`hasValidTimestamps`): Any parseable timestamp exists in the GPX
 - **Time progression** (`hasTimeProgression`): At least one positive consecutive time delta (dt > 0) is observed
 
@@ -188,18 +195,21 @@ The module distinguishes between:
 The module operates in two distinct modes based on `hasTimeProgression`:
 
 #### When `hasTimeProgression === true`:
+
 - Collects time deltas (dt > 0)
 - Collects time-conditioned distance deltas (for pairs with dt > 0)
 - Collects joint time-distance pairs
 - `distanceDeltasM` contains time-conditioned deltas
 
 #### When `hasTimeProgression === false`:
+
 - Does NOT collect time deltas
 - Does NOT collect joint time-distance pairs
 - DOES collect geometry-conditioned distance deltas (all consecutive valid coordinate pairs)
 - `distanceDeltasM` contains geometry-conditioned deltas
 
 **Geometry-conditioned distance deltas** are:
+
 - Calculated purely from consecutive valid coordinate pairs
 - Independent of timestamps
 - Explicitly separated from time-conditioned distance deltas in code (condition = valid finite distance, not timestamp rules)
@@ -217,6 +227,7 @@ The module iterates through all points sequentially:
 #### Geometry-conditioned distance (always computed)
 
 For every consecutive pair of points with valid coordinates:
+
 - Computes Haversine distance
 - Adds to `distanceDeltasMGeometryConditioned` if finite and > 0
 - Tracks rejection count for invalid/zero distances
@@ -224,6 +235,7 @@ For every consecutive pair of points with valid coordinates:
 #### Time Delta Collection (When Timestamps Present)
 
 For points with valid timestamps:
+
 - Compares with previous valid timestamp
 - If delta > 0:
   - Adds to `timeDeltasMs`
@@ -236,6 +248,7 @@ For points with valid timestamps:
 ### 3. Joint Time-Distance Audit (When `hasTimeProgression === true`)
 
 A separate pass generates joint time-distance pairs:
+
 - Only runs when `hasTimeProgression === true`
 - Requires both current and previous points to have valid timestamps
 - Includes pairs only if dtSec > 0 and ddMeters > 0 and finite
@@ -244,6 +257,7 @@ A separate pass generates joint time-distance pairs:
 ### 4. Statistics Calculation
 
 For time deltas:
+
 - Calculates min, max, and median from collected positive deltas
 - All statistics are `null` if no positive deltas collected
 
@@ -316,7 +330,8 @@ Rejected:
 Exports time deltas to a JSON file for download.
 
 **Parameters:**
-- `timeDeltasMs` (Array<number>): Array of time deltas in milliseconds
+
+- `timeDeltasMs` (Array): Array of time deltas in milliseconds
 - `filename` (string): Filename for download
 
 ### `exportDistanceDeltasJSON(distanceDeltasM, filename)`
@@ -324,7 +339,8 @@ Exports time deltas to a JSON file for download.
 Exports distance deltas to a JSON file for download.
 
 **Parameters:**
-- `distanceDeltasM` (Array<number>): Array of distance deltas in meters
+
+- `distanceDeltasM` (Array): Array of distance deltas in meters
 - `filename` (string): Filename for download
 
 ### `exportTimeDistancePairsJSON(timeDistancePairs, filename)`
@@ -332,6 +348,7 @@ Exports distance deltas to a JSON file for download.
 Exports time-distance pairs to a JSON file for download.
 
 **Parameters:**
+
 - `timeDistancePairs` (Array<{dtSec: number, ddMeters: number}>): Array of time-distance pairs
 - `filename` (string): Filename for download
 
@@ -380,3 +397,4 @@ Points passed to this module must have:
 - The module processes points sequentially in array order
 - Geometry-conditioned distance deltas are always computed regardless of timestamp status
 - Time-based analysis is only enabled when positive time progression is detected
+
