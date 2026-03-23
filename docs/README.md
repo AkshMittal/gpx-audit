@@ -7,7 +7,7 @@ This repository’s written material is organized as **stable reference** vs **t
 | Path | What it is |
 |------|------------|
 | **[`project/`](project/README.md)** | Long-lived docs: GPX audit **pipeline** specs, **Supabase** mapping & import, **case-study** browser UI, product roadmap. |
-| **[`reports/`](reports/README.md)** | Dated notes: full-run reconciliations, adversarial harness snapshots, branch/run metadata. |
+| **[`reports/`](reports/README.md)** | Dated notes, full-run reconciliations, adversarial snapshots, **formal case-study report** (draft). |
 
 ## Where to start
 
@@ -18,6 +18,7 @@ This repository’s written material is organized as **stable reference** vs **t
 | Map audit JSON → relational tables / Supabase | [`project/supabase/supabase-v2-upsert-mapping.md`](project/supabase/supabase-v2-upsert-mapping.md) |
 | Run import scripts or fix `data_source` | [`project/supabase/import-audit-supabase.md`](project/supabase/import-audit-supabase.md) |
 | How the case-study static UI queries Supabase | [`project/case-study/case-study-frontend.md`](project/case-study/case-study-frontend.md) |
+| Formal case-study report (prevalence, methods, tables) | [`reports/case-study-formal-report.md`](reports/case-study-formal-report.md) |
 
 ## Repository root
 
