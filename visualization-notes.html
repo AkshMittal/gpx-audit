@@ -4,109 +4,199 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPX Audit - Visualization Notes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
-        body {
-            font-family: "Courier New", Courier, monospace;
-            max-width: 920px;
-            margin: 0 auto;
-            padding: 24px;
-            background: #000;
-            color: #fff;
-            line-height: 1.55;
+        :root {
+            --bg: #1d1917;
+            --panel: #25201d;
+            --panel-2: #2d2723;
+            --line: #4a403a;
+            --text: #e9e0d6;
+            --muted: #bcaea2;
+            --accent: #cfb394;
+            --accent-soft: rgba(207, 179, 148, 0.15);
         }
-        h1, h2 {
-            font-weight: normal;
-            margin: 0 0 14px 0;
+
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #e9e0d6 transparent;
+        }
+        *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+            background: transparent;
+        }
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        *::-webkit-scrollbar-thumb {
+            background: #e9e0d6;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+        }
+        body {
+            font-family: "Spline Sans Mono", monospace;
+            letter-spacing: 0.1px;
+            background-image:
+                radial-gradient(circle at 82% 14%, rgba(207, 179, 148, 0.11), transparent 42%),
+                radial-gradient(circle at 14% 80%, rgba(170, 145, 120, 0.12), transparent 36%),
+                linear-gradient(135deg, #1e1a18, #211c19 48%, #221d1a);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 24px;
+        }
+
+        .notes-shell {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 22px 24px 26px;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.24);
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-family: "Fraunces", serif;
+            font-size: clamp(30px, 5vw, 46px);
+            line-height: 0.95;
+            font-weight: 500;
+            color: #efe5db;
         }
         h2 {
-            margin-top: 22px;
-            font-size: 20px;
+            margin: 24px 0 10px;
+            font-family: "Fraunces", serif;
+            font-size: 26px;
+            font-weight: 400;
+            color: #ece1d5;
+            border-top: 1px solid rgba(207, 179, 148, 0.2);
+            padding-top: 16px;
         }
+
         p, li {
-            color: #cfcfcf;
+            color: #d8cdc1;
         }
         ul {
-            padding-left: 20px;
-            margin-top: 8px;
+            padding-left: 22px;
+            margin: 6px 0 0;
         }
         .muted {
-            color: #9a9a9a;
+            color: var(--muted);
             font-size: 13px;
+            margin-top: 6px;
         }
+
         a {
-            color: #bdbdbd;
+            color: #ddd2c6;
             text-decoration: none;
-            border-bottom: 1px solid #444;
+            border-bottom: 1px solid var(--line);
         }
         a:hover {
-            color: #fff;
-            border-bottom-color: #fff;
+            color: var(--accent);
+            border-bottom-color: var(--accent);
         }
+
         code {
-            color: #fff;
+            color: #efe5db;
+            background: #2e2723;
+            border: 1px solid var(--line);
+            padding: 1px 5px;
+            border-radius: 3px;
         }
+
+        strong {
+            color: #f0e6da;
+        }
+
         .top-links {
-            margin-bottom: 18px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .coverage-note {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--line);
+            background: #2b2421;
+            color: #e7d8c8;
         }
     </style>
 </head>
 <body>
-    <div class="top-links">
-        <a href="index.html">back to workbench</a>
-    </div>
+    <main class="notes-shell">
+        <div class="top-links">
+            <a href="index.html">back to workbench</a>
+        </div>
 
-    <h1>Design and Visualization Notes</h1>
-    <p class="muted">Why these graphs exist and why they were chosen. This page explains design intent, not interpretation rules.</p>
+        <h1>Design and Visualization Notes</h1>
+        <p class="muted">Why these graphs exist and why they were chosen. This page explains design intent, not interpretation rules.</p>
 
-    <h2>Why KDE Instead of Histograms</h2>
-    <p>Histogram bins impose hard boundaries that can distort GPX sampling structure. KDE gives a continuous density estimate where each observation contributes smoothly to nearby regions.</p>
-    <ul>
-        <li>continuous distribution shape (no bin-edge jumps)</li>
-        <li>local influence from each point</li>
-        <li>better visibility of mixed sampling regimes</li>
-    </ul>
+        <h2>Why KDE Instead of Histograms</h2>
+        <p>Histogram bins impose hard boundaries that can distort GPX sampling structure. KDE gives a continuous density estimate where each observation contributes smoothly to nearby regions.</p>
+        <ul>
+            <li>continuous distribution shape (no bin-edge jumps)</li>
+            <li>local influence from each point</li>
+            <li>better visibility of mixed sampling regimes</li>
+        </ul>
 
-    <h2>Why Gaussian Kernels and Log-Scaled Axes</h2>
-    <p>Time and distance deltas are positive and usually span multiple orders of magnitude. Linear spacing compresses dense near-origin structure and over-emphasizes long-tail outliers.</p>
-    <ul>
-        <li>KDE is computed in log space for better near-origin resolution</li>
-        <li>tails remain visible without clipping</li>
-        <li>values are still shown in linear units; only axis spacing is logarithmic</li>
-    </ul>
+        <h2>Why Gaussian Kernels and Log-Scaled Axes</h2>
+        <p>Time and distance deltas are positive and usually span multiple orders of magnitude. Linear spacing compresses dense near-origin structure and over-emphasizes long-tail outliers.</p>
+        <ul>
+            <li>KDE is computed in log space for better near-origin resolution</li>
+            <li>tails remain visible without clipping</li>
+            <li>values are still shown in linear units; only axis spacing is logarithmic</li>
+        </ul>
 
-    <h2>Why Bandwidth Is User-Controlled</h2>
-    <p>There is no single correct smoothing level for raw GPX streams. Different analysis goals require different bandwidths.</p>
-    <ul>
-        <li>higher bandwidth for broad regime trends</li>
-        <li>lower bandwidth for sharp fixed-interval peaks</li>
-        <li>manual control keeps the smoothing tradeoff explicit</li>
-    </ul>
+        <h2>Why Bandwidth Is User-Controlled</h2>
+        <p>There is no single correct smoothing level for raw GPX streams. Different analysis goals require different bandwidths.</p>
+        <ul>
+            <li>higher bandwidth for broad regime trends</li>
+            <li>lower bandwidth for sharp fixed-interval peaks</li>
+            <li>manual control keeps the smoothing tradeoff explicit</li>
+        </ul>
 
-    <h2>Why These Plot Types</h2>
-    <p>Each view answers a distinct question.</p>
-    <ul>
-        <li><code>Time/Distance KDE</code>: dominant scales and multimodality</li>
-        <li><code>Rug support</code>: where observations exist along the axis</li>
-        <li><code>Time-Distance scatter</code>: joint behavior and isolated outliers</li>
-        <li><code>Sequence-aware scatter</code>: local continuity by GPX index</li>
-    </ul>
+        <h2>Why These Plot Types</h2>
+        <p>Each view answers a distinct question.</p>
+        <ul>
+            <li><code>Time/Distance KDE</code>: dominant scales and multimodality</li>
+            <li><code>Rug support</code>: where observations exist along the axis</li>
+            <li><code>Time-Distance scatter</code>: joint behavior and isolated outliers</li>
+            <li><code>Sequence-aware scatter</code>: local continuity by GPX index</li>
+        </ul>
 
-    <h2>Why Sequence-Aware Scatter Exists</h2>
-    <p>Global scatter treats points as exchangeable and hides local temporal structure. Sequence-aware plotting preserves order and makes local behavior legible.</p>
-    <ul>
-        <li>distinguishes true pauses from sparse logging gaps</li>
-        <li>shows stationary logging under fixed cadence</li>
-        <li>exposes time-local transitions in recording behavior</li>
-    </ul>
-    <p><strong>Coverage caveat:</strong> Sequence-aware scatter is rendered from <em>valid joint pairs</em> only (where both time and distance deltas are usable). If the plot appears sparse or visually inconsistent, cross-check <strong>Track Details</strong> / <strong>Deep Inspector</strong> for anomalies and excluded points.</p>
+        <h2>Why Sequence-Aware Scatter Exists</h2>
+        <p>Global scatter treats points as exchangeable and hides local temporal structure. Sequence-aware plotting preserves order and makes local behavior legible.</p>
+        <ul>
+            <li>distinguishes true pauses from sparse logging gaps</li>
+            <li>shows stationary logging under fixed cadence</li>
+            <li>exposes time-local transitions in recording behavior</li>
+        </ul>
+        <p class="coverage-note"><strong>Coverage caveat:</strong> Sequence-aware scatter is rendered from <em>valid joint pairs</em> only (where both time and distance deltas are usable). If the plot appears sparse or visually inconsistent, cross-check <strong>Track Details</strong> / <strong>Deep Inspector</strong> for anomalies and excluded points.</p>
 
-    <h2>What These Plots Do Not Do</h2>
-    <ul>
-        <li>do not prove GPX correctness</li>
-        <li>do not score activity quality</li>
-        <li>do not classify behavior categories</li>
-        <li>do not infer causality</li>
-    </ul>
-    <p>The visualization layer is observation-first: it surfaces structure and leaves interpretation to downstream analysis.</p>
+        <h2>What These Plots Do Not Do</h2>
+        <ul>
+            <li>do not prove GPX correctness</li>
+            <li>do not score activity quality</li>
+            <li>do not classify behavior categories</li>
+            <li>do not infer causality</li>
+        </ul>
+        <p>The visualization layer is observation-first: it surfaces structure and leaves interpretation to downstream analysis.</p>
+    </main>
 </body>
 </html>
