@@ -4,128 +4,195 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPX Audit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
+        /* Theme aligned with reference/case-study.html (workbench only) */
+        :root {
+            --bg: #1d1917;
+            --panel: #25201d;
+            --panel-2: #2d2723;
+            --line: #4a403a;
+            --text: #e9e0d6;
+            --muted: #bcaea2;
+            --accent: #cfb394;
+            --accent-soft: rgba(207, 179, 148, 0.15);
+            --danger: #cd9999;
+            --ok: #a8bf9e;
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #e9e0d6 transparent;
+        }
+        *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+            background: transparent;
+        }
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        *::-webkit-scrollbar-thumb {
+            background: #e9e0d6;
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--bg);
+            color: var(--text);
+        }
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: "Spline Sans Mono", monospace;
+            letter-spacing: 0.1px;
+            background-image:
+                radial-gradient(circle at 82% 14%, rgba(207, 179, 148, 0.11), transparent 42%),
+                radial-gradient(circle at 14% 80%, rgba(170, 145, 120, 0.12), transparent 36%),
+                linear-gradient(135deg, #1e1a18, #211c19 48%, #221d1a);
+            overflow-x: hidden;
+        }
+
+        .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #000000;
-            color: #ffffff;
-        }
-        .container {
-            background: #000000;
-            padding: 20px;
+            background: transparent;
         }
         .header-row {
             display: flex;
             justify-content: flex-start;
             align-items: baseline;
             margin-bottom: 0.5em;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--line);
         }
         .header-row h1 {
             margin: 0;
         }
         h1 {
-            color: #ffffff;
-            font-weight: normal;
+            font-family: "Fraunces", serif;
+            font-size: clamp(28px, 5vw, 48px);
+            line-height: 0.95;
+            font-weight: 500;
+            color: #efe5db;
         }
         h2, h3 {
-            color: #ffffff;
-            font-weight: normal;
+            font-family: "Fraunces", serif;
+            font-weight: 400;
+            color: #ece1d5;
         }
         .file-input-section {
             margin: 20px 0;
             padding: 15px;
-            background: #000000;
-            border: 1px solid #333333;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.24);
         }
         input[type="file"] {
             margin: 10px 0;
-            color: #ffffff;
+            color: var(--text);
         }
         button {
-            background: #000000;
-            color: #ffffff;
-            border: 1px solid #ffffff;
+            border: 1px solid var(--line);
+            background: #28221f;
+            color: #ddd2c6;
             padding: 10px 20px;
             cursor: pointer;
             font-size: 14px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         button:hover {
-            background: #333333;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         #output {
             margin-top: 12px;
             padding: 8px 12px;
-            background: #000000;
-            border: 1px solid #333333;
+            background: #231d1a;
+            border: 1px solid var(--line);
             white-space: pre;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: inherit;
             font-size: 12px;
-            color: #aaaaaa;
+            color: var(--muted);
+            display: none;
         }
         .plot-container {
             margin: 20px 0;
             padding: 15px;
-            background: #000000;
-            border: 1px solid #333333;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.24);
             overflow: visible;
         }
         .plot-container h2 {
             margin-top: 0;
-            color: #ffffff;
+            color: #ece1d5;
         }
         .plot-container svg {
             overflow: visible;
         }
         .plot-container svg text {
-            fill: #ffffff;
+            fill: var(--text);
         }
         .plot-container svg line {
-            stroke: #ffffff;
+            stroke: var(--text);
         }
         .plot-container svg path {
-            stroke: #ffffff;
+            stroke: var(--text);
         }
         .plot-container svg circle:not(.sequence-scatter-point) {
-            fill: #ffffff;
+            fill: var(--text);
         }
         #visualization-section {
             margin-top: 30px;
         }
         .download-button {
-            background: #000000;
+            background: #28221f;
             margin-top: 10px;
-            border: 1px solid #ffffff;
+            border: 1px solid var(--accent);
+            color: var(--accent);
         }
         .download-button:hover {
-            background: #333333;
+            background: linear-gradient(to right, var(--accent-soft), transparent 74%);
         }
         .reset-button {
-            background: #000000;
-            color: #ffffff;
-            border: 1px solid #ffffff;
+            background: #28221f;
+            color: #ddd2c6;
+            border: 1px solid var(--line);
             padding: 8px 16px;
             cursor: pointer;
             font-size: 14px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         .reset-button:hover {
-            background: #333333;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         .bandwidth-control {
             margin: 15px 0;
             padding: 10px;
-            background: #000000;
-            border: 1px solid #333333;
+            background: #29231f;
+            border: 1px solid var(--line);
         }
         .bandwidth-control label {
             display: block;
             margin-bottom: 8px;
             font-weight: normal;
-            color: #ffffff;
+            color: var(--muted);
+            font-size: 0.9em;
         }
         .bandwidth-control .slider-container {
             display: flex;
@@ -135,55 +202,57 @@
         .bandwidth-control input[type="range"] {
             flex: 1;
             height: 6px;
-            background: #333333;
+            background: #433932;
             outline: none;
         }
         .bandwidth-control input[type="range"]::-webkit-slider-thumb {
             appearance: none;
             width: 18px;
             height: 18px;
-            background: #ffffff;
+            background: var(--accent);
             cursor: pointer;
+            border-radius: 999px;
         }
         .bandwidth-control input[type="range"]::-moz-range-thumb {
             width: 18px;
             height: 18px;
-            background: #ffffff;
+            background: var(--accent);
             cursor: pointer;
             border: none;
+            border-radius: 999px;
         }
         .bandwidth-value {
             min-width: 80px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: inherit;
             font-size: 14px;
-            color: #ffffff;
+            color: var(--text);
         }
-        /* block-audit popup: draggable, stays in viewport, reveal on click; info not reset when closed */
+        /* block-audit popup */
         #block-audit-popup {
             position: fixed;
             z-index: 1000;
             min-width: 260px;
             max-width: 90vw;
-            background: #111;
-            border: 1px solid #333;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            font-family: 'Courier New', Courier, monospace;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.4);
+            font-family: inherit;
             font-size: 13px;
         }
         #block-audit-popup .block-audit-header {
             padding: 8px 12px;
-            background: #222;
-            border-bottom: 1px solid #333;
+            background: #302924;
+            border-bottom: 1px solid var(--line);
             cursor: move;
             user-select: none;
-            color: #fff;
+            color: var(--text);
         }
         #block-audit-popup .block-audit-header:hover {
-            background: #2a2a2a;
+            background: #362f2a;
         }
         #block-audit-popup .block-audit-body {
             padding: 12px;
-            color: #ccc;
+            color: var(--muted);
         }
         #block-audit-popup .block-audit-body.hidden {
             display: none;
@@ -191,109 +260,111 @@
         #block-audit-popup label {
             display: block;
             margin-top: 8px;
-            color: #fff;
+            color: var(--text);
         }
         #block-audit-popup input[type="number"] {
             width: 80px;
             margin-left: 8px;
-            background: #000;
-            border: 1px solid #333;
-            color: #fff;
+            background: #231d1a;
+            border: 1px solid var(--line);
+            color: var(--text);
             padding: 4px;
+            font-family: inherit;
         }
         #block-audit-popup button.block-audit-run {
             margin-top: 10px;
-            background: #000;
-            color: #fff;
-            border: 1px solid #fff;
+            background: #28221f;
+            color: #ddd2c6;
+            border: 1px solid var(--line);
             padding: 6px 12px;
             cursor: pointer;
             font-family: inherit;
         }
         #block-audit-popup button.block-audit-run:hover {
-            background: #333;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         #block-audit-popup .block-audit-result {
             margin-top: 12px;
             padding: 8px;
-            background: #000;
-            border: 1px solid #333;
+            background: #231d1a;
+            border: 1px solid var(--line);
             white-space: pre-wrap;
             font-size: 12px;
             max-height: 200px;
             overflow-y: auto;
         }
-        /* scratchpad: same popup behavior, temporary notes, clears on refresh */
+        /* scratchpad */
         #scratchpad-popup {
             position: fixed;
             z-index: 1000;
             min-width: 260px;
             max-width: 90vw;
             width: 280px;
-            background: #111;
-            border: 1px solid #333;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            font-family: 'Courier New', Courier, monospace;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.4);
+            font-family: inherit;
             font-size: 13px;
         }
         #scratchpad-popup .scratchpad-header {
             padding: 8px 12px;
-            background: #222;
-            border-bottom: 1px solid #333;
+            background: #302924;
+            border-bottom: 1px solid var(--line);
             cursor: move;
             user-select: none;
-            color: #fff;
+            color: var(--text);
         }
         #scratchpad-popup .scratchpad-header:hover {
-            background: #2a2a2a;
+            background: #362f2a;
         }
         #scratchpad-popup .scratchpad-body {
             padding: 12px;
-            color: #ccc;
+            color: var(--muted);
         }
         #scratchpad-popup .scratchpad-body.hidden {
             display: none;
         }
         #scratchpad-popup .scratchpad-note {
             font-size: 11px;
-            color: #888;
+            color: var(--muted);
             margin-bottom: 8px;
         }
         #scratchpad-popup .scratchpad-textarea {
             width: 100%;
             min-height: 120px;
             box-sizing: border-box;
-            background: #000;
-            border: 1px solid #333;
-            color: #fff;
+            background: #231d1a;
+            border: 1px solid var(--line);
+            color: var(--text);
             padding: 8px;
             font-family: inherit;
             font-size: 13px;
             resize: vertical;
         }
-        /* audit-map: floating Leaflet map container */
+        /* audit-map */
         #audit-map-container {
             position: fixed;
             z-index: 1000;
             width: 420px;
-            background: #111;
-            border: 1px solid #333;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            font-family: 'Courier New', Courier, monospace;
+            background: linear-gradient(170deg, var(--panel), var(--panel-2));
+            border: 1px solid var(--line);
+            box-shadow: 0 16px 25px rgba(0, 0, 0, 0.4);
+            font-family: inherit;
             font-size: 13px;
             right: 24px;
             top: 24px;
         }
         #audit-map-container .audit-map-bar {
             padding: 8px 12px;
-            background: #222;
-            border-bottom: 1px solid #333;
+            background: #302924;
+            border-bottom: 1px solid var(--line);
             cursor: move;
             user-select: none;
-            color: #fff;
+            color: var(--text);
         }
         #audit-map-container .audit-map-bar:hover {
-            background: #2a2a2a;
+            background: #362f2a;
         }
         #audit-map-container .audit-map-body {
             height: 360px;
@@ -306,50 +377,51 @@
         #audit-map-container .audit-map-search {
             display: flex;
             padding: 6px 8px;
-            background: #111;
-            border-bottom: 1px solid #333;
+            background: #29231f;
+            border-bottom: 1px solid var(--line);
         }
         #audit-map-container .audit-map-search input {
             flex: 1;
-            background: #000;
-            border: 1px solid #333;
-            color: #fff;
+            background: #231d1a;
+            border: 1px solid var(--line);
+            color: var(--text);
             padding: 4px 6px;
             font-family: inherit;
             font-size: 12px;
         }
         #audit-map-container .audit-map-search button {
             margin-left: 4px;
-            background: #000;
-            color: #fff;
-            border: 1px solid #fff;
+            background: #28221f;
+            color: #ddd2c6;
+            border: 1px solid var(--line);
             padding: 4px 10px;
             cursor: pointer;
             font-family: inherit;
             font-size: 12px;
         }
         #audit-map-container .audit-map-search button:hover {
-            background: #333;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         #audit-map-div {
             flex: 1;
         }
         .page-meta {
             font-size: 12px;
-            color: #666;
+            color: var(--muted);
             margin-bottom: 20px;
             display: flex;
             gap: 16px;
             align-items: center;
         }
         .page-meta a {
-            color: #888;
+            color: var(--muted);
             text-decoration: none;
-            border-bottom: 1px solid #444;
+            border-bottom: 1px solid #6f655d;
         }
         .page-meta a:hover {
-            color: #fff;
-            border-bottom-color: #fff;
+            color: var(--text);
+            border-bottom-color: var(--text);
         }
         #json-viewer-section {
             margin-top: 20px;
@@ -367,10 +439,10 @@
             margin-bottom: 8px;
         }
         #raw-json-output {
-            background: #000;
-            border: 1px solid #333;
-            color: #ccc;
-            font-family: 'Courier New', Courier, monospace;
+            background: #231d1a;
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-family: inherit;
             font-size: 12px;
             padding: 12px;
             max-height: 480px;
@@ -392,23 +464,194 @@
             gap: 6px;
         }
         #tools-launcher button {
-            background: #111;
-            color: #aaa;
-            border: 1px solid #333;
+            background: #28221f;
+            color: #ddd2c6;
+            border: 1px solid var(--line);
             padding: 6px 12px;
             cursor: pointer;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: inherit;
             font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         #tools-launcher button:hover {
-            background: #222;
-            color: #fff;
-            border-color: #666;
+            border-color: var(--accent);
+            color: var(--accent);
         }
         #tools-launcher button.active {
-            background: #fff;
-            color: #000;
-            border-color: #fff;
+            background: linear-gradient(to right, var(--accent-soft), transparent 74%);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+        .detail-body {
+            padding: 10px;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-size: 12px;
+        }
+        .detail-empty {
+            color: var(--muted);
+            font-size: 12px;
+            padding: 12px;
+            border: 1px dashed #6f6154;
+            background: #2b2521;
+        }
+        .detail-section {
+            border: 1px solid var(--line);
+            margin-bottom: 9px;
+            background: #2a2420;
+        }
+        .detail-section h4 {
+            margin: 0;
+            padding: 8px 9px;
+            border-bottom: 1px solid var(--line);
+            color: #e3d6c8;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        .kv-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 5px 8px;
+            padding: 8px;
+        }
+        .kv {
+            border: 1px solid #544840;
+            padding: 6px;
+            background: #312a25;
+            min-width: 0;
+        }
+        .kv .k {
+            color: var(--muted);
+            font-size: 10px;
+            margin-bottom: 4px;
+            text-transform: lowercase;
+        }
+        .kv .v {
+            color: var(--text);
+            font-size: 12px;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .artifact-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 6px;
+            padding: 8px;
+        }
+        .modal {
+            position: fixed;
+            inset: 18px;
+            background: linear-gradient(180deg, #2a2420, #332b26);
+            border: 1px solid #594d44;
+            box-shadow: 0 24px 34px rgba(0, 0, 0, 0.36);
+            z-index: 1500;
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(8px) scale(0.99);
+            transition: transform 180ms ease, opacity 180ms ease;
+            overscroll-behavior: contain;
+        }
+        .modal.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+        .modal-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--line);
+        }
+        .modal-head h3 {
+            margin: 0;
+            font-size: 14px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+        .inspector-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--line);
+        }
+        .inspector-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: 0;
+        }
+        .anomaly-list {
+            border-right: 1px solid var(--line);
+            padding: 8px;
+            overflow: auto;
+            overscroll-behavior: contain;
+        }
+        .anomaly-item {
+            border: 1px solid #5a4d44;
+            padding: 7px;
+            background: #2d2621;
+            margin-bottom: 7px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .anomaly-item:hover { border-color: var(--accent); }
+        .anomaly-item.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-soft); }
+        .anomaly-item strong { display: block; color: #eadac7; margin-bottom: 3px; }
+        .finding-badge {
+            display: inline-block;
+            margin-bottom: 6px;
+            padding: 2px 5px;
+            font-size: 9px;
+            text-transform: lowercase;
+            border: 1px solid #6b6159;
+            color: #d7cabd;
+            background: #312923;
+        }
+        .finding-badge.diagnostic {
+            border-color: #5c6f78;
+            color: #d6e6ee;
+            background: #27333a;
+        }
+        .finding-badge.anomaly {
+            border-color: #6b6159;
+            color: #eadac7;
+            background: #352a23;
+        }
+        .anomaly-item code { color: #d7cabd; font-size: 10px; }
+        .json-view {
+            margin: 0;
+            padding: 10px;
+            overflow: auto;
+            font-size: 11px;
+            line-height: 1.46;
+            color: #ddd2c7;
+            white-space: pre;
+            font-family: "Spline Sans Mono", monospace;
+            background: #271f1b;
+            overscroll-behavior: contain;
+        }
+        .json-highlight {
+            background: rgba(207, 179, 148, 0.33);
+            color: #fff;
+            border-radius: 2px;
+        }
+        .chip {
+            font-size: 10px;
+            border: 1px solid #6f6257;
+            color: #dfd0bf;
+            padding: 3px 6px;
+            background: #2e2722;
         }
         .tool-hidden {
             display: none !important;
@@ -464,10 +707,12 @@
 
         <div id="json-viewer-section" class="plot-container">
             <div id="json-viewer-header-row">
-                <h2>Raw Audit JSON</h2>
-                    <button id="json-download-btn" onclick="downloadAuditJson()" title="Download">Download</button>
+                <h2>Track Details</h2>
+                <small id="selectedTrackLabel">none loaded</small>
             </div>
-            <pre id="raw-json-output">— load a GPX file to see audit JSON —</pre>
+            <div class="detail-body" id="detailBody">
+                <div class="detail-empty">Load a GPX file to inspect per-track metrics.</div>
+            </div>
         </div>
         
         <div id="visualization-section">
@@ -517,6 +762,9 @@
                     <button class="reset-button" onclick="resetChart('index-time-delta-scatter')">Reset View</button>
                 </div>
                 <div id="index-time-delta-scatter"></div>
+                <p style="margin: 10px 0 0; font-size: 11px; color: var(--muted);">
+                    Note: this view is built from valid joint pairs only (points where both time and distance deltas are usable). For anomaly context and excluded points, check <strong>Track Details</strong> and <strong>Deep Inspector</strong>.
+                </p>
             </div>
         </div>
     </div>
@@ -526,6 +774,25 @@
         <button id="toggle-block-audit-popup" onclick="toggleTool('block-audit-popup')">block-audit</button>
         <button id="toggle-scratchpad-popup" onclick="toggleTool('scratchpad-popup')">scratchpad</button>
     </div>
+
+    <section class="modal" id="inspectorModal" aria-label="deep inspector">
+        <div class="modal-head">
+            <h3>Deep Inspector (Local Audit JSON)</h3>
+            <button type="button" id="closeInspectorBtn">Close</button>
+        </div>
+        <div class="inspector-toolbar">
+            <select id="anomalyTypeSelect"></select>
+            <button type="button" id="prevAnomalyBtn">Prev item</button>
+            <button type="button" id="nextAnomalyBtn">Next item</button>
+            <button type="button" id="copyPathBtn">Copy path</button>
+            <button type="button" id="json-download-btn" onclick="downloadAuditJson()" title="Download">Download JSON</button>
+            <span id="inspectorSummary" class="chip">0 findings</span>
+        </div>
+        <div class="inspector-grid">
+            <div class="anomaly-list" id="anomalyList"></div>
+            <pre class="json-view" id="jsonView"></pre>
+        </div>
+    </section>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="js/pipeline/gpx-ingestion-module.js"></script>
@@ -623,6 +890,356 @@
             };
         }
 
+        function asArray(value) {
+            return Array.isArray(value) ? value : [];
+        }
+
+        function hasOwn(obj, key) {
+            return Boolean(obj && Object.prototype.hasOwnProperty.call(obj, key));
+        }
+
+        function addTemporalAnomalies(auditJson, out) {
+            const temporalOrder = auditJson?.audit?.temporal?.temporalOrder || {};
+            const groups = ["missing", "unparsable", "duplicate", "backtracking"];
+
+            for (const group of groups) {
+                const groupObj = temporalOrder[group] || {};
+                const blocks = asArray(groupObj.blocks);
+                const singles = asArray(groupObj.singlePoints);
+
+                blocks.forEach((block, idx) => {
+                    const fromIndex = block?.fromIndex ?? block?.startIndex ?? null;
+                    const toIndex = block?.toIndex ?? block?.endIndex ?? null;
+                    const length = block?.length ?? (fromIndex !== null && toIndex !== null ? toIndex - fromIndex + 1 : null);
+                    const blockHighlightTerm = fromIndex !== null
+                        ? hasOwn(block, "fromIndex") ? `"fromIndex": ${fromIndex}` : `"startIndex": ${fromIndex}`
+                        : toIndex !== null
+                            ? hasOwn(block, "toIndex") ? `"toIndex": ${toIndex}` : `"endIndex": ${toIndex}`
+                            : length !== null
+                                ? `"length": ${length}`
+                                : `"${group}"`;
+                    out.push({
+                        type: "temporal",
+                        subtype: group,
+                        kind: "block",
+                        findingClass: "anomaly",
+                        label: `${group}.blocks[${idx}]`,
+                        path: `audit.temporal.temporalOrder.${group}.blocks[${idx}]`,
+                        summary: `len=${length ?? "?"}, from=${fromIndex ?? "?"}, to=${toIndex ?? "?"}`,
+                        highlightTerm: blockHighlightTerm
+                    });
+                });
+
+                singles.forEach((single, idx) => {
+                    const gpxIndex = single?.gpxIndex ?? single?.index ?? single;
+                    const singleHighlightTerm = gpxIndex !== null && gpxIndex !== undefined
+                        ? hasOwn(single, "gpxIndex")
+                            ? `"gpxIndex": ${gpxIndex}`
+                            : hasOwn(single, "index")
+                                ? `"index": ${gpxIndex}`
+                                : `"${gpxIndex}"`
+                        : `"${group}"`;
+                    out.push({
+                        type: "temporal",
+                        subtype: group,
+                        kind: "single",
+                        findingClass: "anomaly",
+                        label: `${group}.singlePoints[${idx}]`,
+                        path: `audit.temporal.temporalOrder.${group}.singlePoints[${idx}]`,
+                        summary: `gpxIndex=${gpxIndex ?? "?"}`,
+                        highlightTerm: singleHighlightTerm
+                    });
+                });
+            }
+        }
+
+        function addSamplingAnomalies(auditJson, out) {
+            const clustering = auditJson?.audit?.sampling?.time?.clustering || {};
+            const candidates = [
+                { key: "clustersSorted", title: "clustersSorted" },
+                { key: "clustersSequential", title: "clustersSequential" },
+                { key: "clusters", title: "clusters" }
+            ];
+
+            for (const candidate of candidates) {
+                const clusters = asArray(clustering[candidate.key]);
+                if (!clusters.length) continue;
+                clusters.forEach((cluster, idx) => {
+                    const count = cluster?.count ?? cluster?.membersCount ?? (Array.isArray(cluster?.members) ? cluster.members.length : null);
+                    const centerSec = cluster?.centerSec ?? (typeof cluster?.centerMs === "number" ? cluster.centerMs / 1000 : null) ?? null;
+                    out.push({
+                        type: "sampling",
+                        subtype: "clustering",
+                        kind: "cluster",
+                        findingClass: "diagnostic",
+                        label: `${candidate.title}[${idx}]`,
+                        path: `audit.sampling.time.clustering.${candidate.key}[${idx}]`,
+                        summary: `centerSec=${centerSec ?? "?"}, count=${count ?? "?"}`,
+                        highlightTerm: centerSec !== null ? `"centerSec": ${centerSec}` : count !== null ? `"count": ${count}` : `"${candidate.key}"`
+                    });
+                });
+            }
+        }
+
+        function buildAnomalyIndex(auditJson) {
+            const out = [];
+            addTemporalAnomalies(auditJson, out);
+            addSamplingAnomalies(auditJson, out);
+            return out;
+        }
+
+        function prettyJson(value) {
+            return JSON.stringify(value, null, 2);
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;");
+        }
+
+        function highlightFirstMatch(rawJsonText, term) {
+            const escaped = escapeHtml(rawJsonText);
+            if (!term) return escaped;
+            const escapedTerm = escapeHtml(term);
+            const idx = escaped.indexOf(escapedTerm);
+            if (idx < 0) return escaped;
+            return escaped.slice(0, idx) +
+                `<mark class="json-highlight">${escaped.slice(idx, idx + escapedTerm.length)}</mark>` +
+                escaped.slice(idx + escapedTerm.length);
+        }
+
+        function groupAnomalies(anomalies, selectedType) {
+            if (!selectedType || selectedType === "all") return anomalies;
+            return anomalies.filter((item) => `${item.type}:${item.subtype}` === selectedType);
+        }
+
+        function kvCard(key, value) {
+            return `<div class="kv"><div class="k">${key}</div><div class="v">${value ?? "—"}</div></div>`;
+        }
+
+        function humanizeKey(key) {
+            return String(key || "").replaceAll("_", " ").trim();
+        }
+
+        function formatDetailValue(key, value) {
+            if (value === null || value === undefined) return "—";
+            if (typeof value === "boolean") return value ? "true" : "false";
+            if (typeof value === "number") {
+                const name = String(key || "");
+                if (name.includes("ratio") || name.includes("share") || name.includes("deviation")) return value.toFixed(3);
+                if (Number.isInteger(value)) return value.toLocaleString();
+                return value.toFixed(3);
+            }
+            if (typeof value === "object") return escapeHtml(JSON.stringify(value));
+            return String(value);
+        }
+
+        function flattenObject(obj, prefix = "", out = {}) {
+            if (!obj || typeof obj !== "object") return out;
+            Object.entries(obj).forEach(([k, v]) => {
+                const nextKey = prefix ? `${prefix}.${k}` : k;
+                if (Array.isArray(v)) {
+                    out[nextKey] = `[${v.length} items]`;
+                } else if (v && typeof v === "object") {
+                    flattenObject(v, nextKey, out);
+                } else {
+                    out[nextKey] = v;
+                }
+            });
+            return out;
+        }
+
+        function renderMetricSection(title, obj) {
+            if (!obj) {
+                return `<section class="detail-section"><h4>${title}</h4><div class="kv-grid">${kvCard("status", "—")}</div></section>`;
+            }
+            const flattened = flattenObject(obj);
+            const entries = Object.entries(flattened).sort(([a], [b]) => a.localeCompare(b));
+            const cells = entries.map(([k, v]) => kvCard(humanizeKey(k), formatDetailValue(k, v))).join("");
+            return `<section class="detail-section"><h4>${title}</h4><div class="kv-grid">${cells || kvCard("status", "—")}</div></section>`;
+        }
+
+        function buildLocalDetailFromPayload(payload, fileName) {
+            return {
+                track_uid: (fileName || "local-track").replace(/\.gpx$/i, ""),
+                schema_version: payload?.metadata?.schemaVersion ?? null,
+                generated_at_utc: payload?.metadata?.generatedAtUtc ?? null,
+                source_file_name: payload?.metadata?.source?.fileName ?? fileName ?? null,
+                summary_total_point_count: payload?.metadata?.summary?.totalPointCount ?? null,
+                ingestion: payload?.audit?.ingestion ?? null,
+                temporal: payload?.audit?.temporal ?? null,
+                sampling: payload?.audit?.sampling ?? null,
+                motion: payload?.audit?.motion ?? null
+            };
+        }
+
+        function renderDetailPanel(detail) {
+            const body = document.getElementById("detailBody");
+            const label = document.getElementById("selectedTrackLabel");
+            if (!detail) {
+                label.textContent = "none loaded";
+                body.innerHTML = `<div class="detail-empty">Load a GPX file to inspect per-track metrics.</div>`;
+                return;
+            }
+            label.textContent = detail.track_uid;
+            const trackSection = renderMetricSection("track", {
+                track_uid: detail.track_uid,
+                schema_version: detail.schema_version,
+                generated_at_utc: detail.generated_at_utc,
+                source_file_name: detail.source_file_name,
+                summary_total_point_count: detail.summary_total_point_count
+            });
+            const ingestionSection = renderMetricSection("ingestion_metrics", detail.ingestion);
+            const temporalSection = renderMetricSection("temporal_metrics", detail.temporal);
+            const samplingSection = renderMetricSection("sampling_metrics", detail.sampling);
+            const motionSection = renderMetricSection("motion_metrics", detail.motion);
+            body.innerHTML = `
+                ${trackSection}
+                ${ingestionSection}
+                ${temporalSection}
+                ${samplingSection}
+                ${motionSection}
+                <section class="detail-section">
+                    <h4>Artifacts</h4>
+                    <div class="artifact-actions">
+                        <button type="button" id="openInspectorBtn">Open deep inspector</button>
+                    </div>
+                </section>
+            `;
+            document.getElementById("openInspectorBtn").addEventListener("click", () => openInspector());
+        }
+
+        let inspectorState = {
+            rawJson: "",
+            anomalies: [],
+            filteredType: "all",
+            selectedIdx: -1
+        };
+
+        function getFilteredInspectorAnomalies() {
+            const grouped = groupAnomalies(inspectorState.anomalies, inspectorState.filteredType);
+            return grouped.map((item, idx) => ({
+                item,
+                globalIdx: inspectorState.anomalies.indexOf(item),
+                filteredIdx: idx
+            }));
+        }
+
+        function renderInspector() {
+            const typeSelect = document.getElementById("anomalyTypeSelect");
+            const summary = document.getElementById("inspectorSummary");
+            const listEl = document.getElementById("anomalyList");
+            const jsonView = document.getElementById("jsonView");
+
+            const typeEntries = [{ value: "all", label: "all finding types" }];
+            const findingTypeMap = new Map();
+            inspectorState.anomalies.forEach((item) => {
+                const key = `${item.type}:${item.subtype}`;
+                if (!findingTypeMap.has(key)) {
+                    findingTypeMap.set(key, item.findingClass === "diagnostic" ? "diagnostic" : "anomaly");
+                }
+            });
+            [...findingTypeMap.entries()].forEach(([key, findingClass]) =>
+                typeEntries.push({ value: key, label: `${findingClass} | ${key}` })
+            );
+
+            typeSelect.innerHTML = "";
+            typeEntries.forEach((entry) => {
+                const opt = document.createElement("option");
+                opt.value = entry.value;
+                opt.textContent = entry.label;
+                typeSelect.appendChild(opt);
+            });
+            typeSelect.value = inspectorState.filteredType;
+
+            const filtered = getFilteredInspectorAnomalies();
+            summary.textContent = `${filtered.length} findings`;
+            listEl.innerHTML = "";
+            filtered.forEach((entry) => {
+                const div = document.createElement("article");
+                div.className = "anomaly-item";
+                if (entry.globalIdx === inspectorState.selectedIdx) div.classList.add("selected");
+                const findingClass = entry.item.findingClass === "diagnostic" ? "diagnostic" : "anomaly";
+                div.innerHTML = `<strong>${entry.item.label}</strong><span class="finding-badge ${findingClass}">${findingClass}</span><div>${entry.item.summary}</div><code>${entry.item.path}</code>`;
+                div.addEventListener("click", () => {
+                    inspectorState.selectedIdx = entry.globalIdx;
+                    renderInspector();
+                });
+                listEl.appendChild(div);
+            });
+
+            let highlighted = inspectorState.rawJson;
+            let selectedPath = "";
+            const selected = inspectorState.anomalies[inspectorState.selectedIdx];
+            if (selected) {
+                highlighted = highlightFirstMatch(inspectorState.rawJson, selected.highlightTerm || "");
+                selectedPath = selected.path;
+            } else {
+                highlighted = highlightFirstMatch(inspectorState.rawJson, "");
+            }
+
+            jsonView.innerHTML = highlighted;
+            requestAnimationFrame(() => {
+                const mark = jsonView.querySelector("mark");
+                if (mark) mark.scrollIntoView({ block: "center" });
+            });
+            const copyPathBtn = document.getElementById("copyPathBtn");
+            copyPathBtn.disabled = !selectedPath;
+        }
+
+        function openInspector() {
+            const payload = window.currentAuditPayload;
+            if (!payload) {
+                alert("No audit JSON available. Please run an audit first.");
+                return;
+            }
+            const modal = document.getElementById("inspectorModal");
+            modal.classList.add("open");
+            document.body.style.overflow = "hidden";
+            inspectorState.rawJson = prettyJson(payload);
+            inspectorState.anomalies = buildAnomalyIndex(payload);
+            inspectorState.filteredType = "all";
+            inspectorState.selectedIdx = inspectorState.anomalies.length ? 0 : -1;
+            renderInspector();
+        }
+
+        function bindInspectorEvents() {
+            document.getElementById("closeInspectorBtn").addEventListener("click", () => {
+                document.getElementById("inspectorModal").classList.remove("open");
+                document.body.style.overflow = "";
+            });
+            document.getElementById("anomalyTypeSelect").addEventListener("change", (event) => {
+                inspectorState.filteredType = event.target.value;
+                inspectorState.selectedIdx = -1;
+                const filtered = getFilteredInspectorAnomalies();
+                if (filtered.length) inspectorState.selectedIdx = filtered[0].globalIdx;
+                renderInspector();
+            });
+            document.getElementById("prevAnomalyBtn").addEventListener("click", () => {
+                const filtered = getFilteredInspectorAnomalies();
+                if (!filtered.length) return;
+                const current = filtered.findIndex((x) => x.globalIdx === inspectorState.selectedIdx);
+                const next = current <= 0 ? filtered[filtered.length - 1] : filtered[current - 1];
+                inspectorState.selectedIdx = next.globalIdx;
+                renderInspector();
+            });
+            document.getElementById("nextAnomalyBtn").addEventListener("click", () => {
+                const filtered = getFilteredInspectorAnomalies();
+                if (!filtered.length) return;
+                const current = filtered.findIndex((x) => x.globalIdx === inspectorState.selectedIdx);
+                const next = current < 0 || current >= filtered.length - 1 ? filtered[0] : filtered[current + 1];
+                inspectorState.selectedIdx = next.globalIdx;
+                renderInspector();
+            });
+            document.getElementById("copyPathBtn").addEventListener("click", async () => {
+                const selected = inspectorState.anomalies[inspectorState.selectedIdx];
+                if (!selected) return;
+                await navigator.clipboard.writeText(selected.path);
+            });
+        }
+
         async function loadAndParseGPX() {
             const fileInput = document.getElementById('gpxFile');
             const output = document.getElementById('output');
@@ -699,8 +1316,8 @@
                     motionAudit: window.currentMotionAudit
                 });
                 window.currentAuditPayload = auditPayload;
-                const jsonEl = document.getElementById('raw-json-output');
-                if (jsonEl) jsonEl.textContent = JSON.stringify(auditPayload, null, 2);
+                window.currentDetailView = buildLocalDetailFromPayload(auditPayload, file.name);
+                renderDetailPanel(window.currentDetailView);
                 
             } catch (error) {
                 output.textContent = 'Error: ' + error.message;
@@ -933,7 +1550,11 @@
         }
         
         // Render placeholders when page loads
-        window.addEventListener('DOMContentLoaded', renderPlaceholderGraphs);
+        window.addEventListener('DOMContentLoaded', function () {
+            renderPlaceholderGraphs();
+            bindInspectorEvents();
+            renderDetailPanel(null);
+        });
     </script>
     <script>
         /* ── Scratchpad: drag + toggle + bring-to-front ── */
