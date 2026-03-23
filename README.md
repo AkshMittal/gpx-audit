@@ -1,6 +1,6 @@
 # gpx-audit
 
-GPX audit toolkit for ingestion, temporal integrity checks, sampling diagnostics, and motion diagnostics, with schema-based JSON output and optional Supabase-backed exploration.
+GPX audit toolkit for ingestion, temporal integrity checks, sampling diagnostics, and motion diagnostics, with schema-based JSON output and optional Supabase-backed exploration. Currently deployed at https://gpx-audit-case-study.vercel.app/
 
 ## What this branch contains (`case-study`)
 
