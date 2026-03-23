@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPX Audit</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #000000;
+            color: #ffffff;
+        }
+        .container {
+            background: #000000;
+            padding: 20px;
+        }
+        .header-row {
+            display: flex;
+            justify-content: flex-start;
+            align-items: baseline;
+            margin-bottom: 0.5em;
+        }
+        .header-row h1 {
+            margin: 0;
+        }
+        h1 {
+            color: #ffffff;
+            font-weight: normal;
+        }
+        h2, h3 {
+            color: #ffffff;
+            font-weight: normal;
+        }
+        .file-input-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            color: #ffffff;
+        }
+        button {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        button:hover {
+            background: #333333;
+        }
+        #output {
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: #000000;
+            border: 1px solid #333333;
+            white-space: pre;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #aaaaaa;
+        }
+        .plot-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #000000;
+            border: 1px solid #333333;
+            overflow: visible;
+        }
+        .plot-container h2 {
+            margin-top: 0;
+            color: #ffffff;
+        }
+        .plot-container svg {
+            overflow: visible;
+        }
+        .plot-container svg text {
+            fill: #ffffff;
+        }
+        .plot-container svg line {
+            stroke: #ffffff;
+        }
+        .plot-container svg path {
+            stroke: #ffffff;
+        }
+        .plot-container svg circle:not(.sequence-scatter-point) {
+            fill: #ffffff;
+        }
+        #visualization-section {
+            margin-top: 30px;
+        }
+        .download-button {
+            background: #000000;
+            margin-top: 10px;
+            border: 1px solid #ffffff;
+        }
+        .download-button:hover {
+            background: #333333;
+        }
+        .reset-button {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .reset-button:hover {
+            background: #333333;
+        }
+        .bandwidth-control {
+            margin: 15px 0;
+            padding: 10px;
+            background: #000000;
+            border: 1px solid #333333;
+        }
+        .bandwidth-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: normal;
+            color: #ffffff;
+        }
+        .bandwidth-control .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bandwidth-control input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #333333;
+            outline: none;
+        }
+        .bandwidth-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            cursor: pointer;
+        }
+        .bandwidth-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #ffffff;
+            cursor: pointer;
+            border: none;
+        }
+        .bandwidth-value {
+            min-width: 80px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #ffffff;
+        }
+        /* block-audit popup: draggable, stays in viewport, reveal on click; info not reset when closed */
+        #block-audit-popup {
+            position: fixed;
+            z-index: 1000;
+            min-width: 260px;
+            max-width: 90vw;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+        #block-audit-popup .block-audit-header {
+            padding: 8px 12px;
+            background: #222;
+            border-bottom: 1px solid #333;
+            cursor: move;
+            user-select: none;
+            color: #fff;
+        }
+        #block-audit-popup .block-audit-header:hover {
+            background: #2a2a2a;
+        }
+        #block-audit-popup .block-audit-body {
+            padding: 12px;
+            color: #ccc;
+        }
+        #block-audit-popup .block-audit-body.hidden {
+            display: none;
+        }
+        #block-audit-popup label {
+            display: block;
+            margin-top: 8px;
+            color: #fff;
+        }
+        #block-audit-popup input[type="number"] {
+            width: 80px;
+            margin-left: 8px;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 4px;
+        }
+        #block-audit-popup button.block-audit-run {
+            margin-top: 10px;
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        #block-audit-popup button.block-audit-run:hover {
+            background: #333;
+        }
+        #block-audit-popup .block-audit-result {
+            margin-top: 12px;
+            padding: 8px;
+            background: #000;
+            border: 1px solid #333;
+            white-space: pre-wrap;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        /* scratchpad: same popup behavior, temporary notes, clears on refresh */
+        #scratchpad-popup {
+            position: fixed;
+            z-index: 1000;
+            min-width: 260px;
+            max-width: 90vw;
+            width: 280px;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+        #scratchpad-popup .scratchpad-header {
+            padding: 8px 12px;
+            background: #222;
+            border-bottom: 1px solid #333;
+            cursor: move;
+            user-select: none;
+            color: #fff;
+        }
+        #scratchpad-popup .scratchpad-header:hover {
+            background: #2a2a2a;
+        }
+        #scratchpad-popup .scratchpad-body {
+            padding: 12px;
+            color: #ccc;
+        }
+        #scratchpad-popup .scratchpad-body.hidden {
+            display: none;
+        }
+        #scratchpad-popup .scratchpad-note {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        #scratchpad-popup .scratchpad-textarea {
+            width: 100%;
+            min-height: 120px;
+            box-sizing: border-box;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+        }
+        /* audit-map: floating Leaflet map container */
+        #audit-map-container {
+            position: fixed;
+            z-index: 1000;
+            width: 420px;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            right: 24px;
+            top: 24px;
+        }
+        #audit-map-container .audit-map-bar {
+            padding: 8px 12px;
+            background: #222;
+            border-bottom: 1px solid #333;
+            cursor: move;
+            user-select: none;
+            color: #fff;
+        }
+        #audit-map-container .audit-map-bar:hover {
+            background: #2a2a2a;
+        }
+        #audit-map-container .audit-map-body {
+            height: 360px;
+            display: flex;
+            flex-direction: column;
+        }
+        #audit-map-container .audit-map-body.hidden {
+            display: none;
+        }
+        #audit-map-container .audit-map-search {
+            display: flex;
+            padding: 6px 8px;
+            background: #111;
+            border-bottom: 1px solid #333;
+        }
+        #audit-map-container .audit-map-search input {
+            flex: 1;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            padding: 4px 6px;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        #audit-map-container .audit-map-search button {
+            margin-left: 4px;
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+        }
+        #audit-map-container .audit-map-search button:hover {
+            background: #333;
+        }
+        #audit-map-div {
+            flex: 1;
+        }
+        .page-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .page-meta a {
+            color: #888;
+            text-decoration: none;
+            border-bottom: 1px solid #444;
+        }
+        .page-meta a:hover {
+            color: #fff;
+            border-bottom-color: #fff;
+        }
+        #json-viewer-section {
+            margin-top: 20px;
+        }
+        #json-viewer-section .plot-container {
+            position: relative;
+        }
+        #json-viewer-section h2 {
+            margin: 0;
+        }
+        #json-viewer-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        #raw-json-output {
+            background: #000;
+            border: 1px solid #333;
+            color: #ccc;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            padding: 12px;
+            max-height: 480px;
+            overflow-y: auto;
+            white-space: pre;
+            word-break: normal;
+            overflow-x: auto;
+        }
+        #json-download-btn {
+            font-size: 12px;
+            padding: 6px 14px;
+        }
+        #tools-launcher {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            gap: 6px;
+        }
+        #tools-launcher button {
+            background: #111;
+            color: #aaa;
+            border: 1px solid #333;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+        }
+        #tools-launcher button:hover {
+            background: #222;
+            color: #fff;
+            border-color: #666;
+        }
+        #tools-launcher button.active {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+        .tool-hidden {
+            display: none !important;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div id="audit-map-container" class="tool-hidden">
+        <div class="audit-map-bar" id="audit-map-bar">audit-map</div>
+        <div class="audit-map-body hidden" id="audit-map-body">
+            <div class="audit-map-search">
+                <input type="number" id="audit-map-search-input" placeholder="gpxIndex" min="0" />
+                <button type="button" id="audit-map-search-btn">Go</button>
+                <button type="button" id="audit-map-recenter-btn" title="Fit to route bounds">Recenter</button>
+            </div>
+            <div id="audit-map-div"></div>
+        </div>
+    </div>
+    <div id="scratchpad-popup" aria-label="scratchpad" class="tool-hidden">
+        <div class="scratchpad-header" id="scratchpad-header">scratchpad</div>
+        <div class="scratchpad-body hidden" id="scratchpad-body">
+            <p class="scratchpad-note">clears on refresh</p>
+            <textarea class="scratchpad-textarea" id="scratchpad-textarea" placeholder="free-form notes…"></textarea>
+        </div>
+    </div>
+    <div id="block-audit-popup" aria-label="block-audit" class="tool-hidden">
+        <div class="block-audit-header" id="block-audit-header">block-audit</div>
+        <div class="block-audit-body hidden" id="block-audit-body">
+            <label>fromIndex <input type="number" id="block-audit-from" min="0" value="0" /></label>
+            <label>toIndex <input type="number" id="block-audit-to" min="0" value="0" /></label>
+            <button type="button" class="block-audit-run" id="block-audit-run">Run</button>
+            <pre class="block-audit-result" id="block-audit-result"></pre>
+        </div>
+    </div>
+    <div class="container">
+        <div class="header-row">
+            <h1>GPX Audit</h1>
+        </div>
+        <div class="page-meta">
+            <span>observational audit — no correction performed</span>
+            <a href="https://akshmittal.medium.com/gpx-audit-pipeline-module-spec-technical-writeup-393b3cb7cff5?source=friends_link&sk=3a112fc777004d0c2a2ff45c0dbec986" target="_blank" rel="noopener">methodology ↗</a>
+            <a href="visualization-notes.html" target="_blank" rel="noopener">visualization notes ↗</a>
+        </div>
+        
+        <div class="file-input-section">
+            <label for="gpxFile">Select GPX File:</label>
+            <input type="file" id="gpxFile" accept=".gpx" />
+            <button onclick="loadAndParseGPX()">Run Audit</button>
+        </div>
+
+        <div id="output"></div>
+
+        <div id="json-viewer-section" class="plot-container">
+            <div id="json-viewer-header-row">
+                <h2>Raw Audit JSON</h2>
+                    <button id="json-download-btn" onclick="downloadAuditJson()" title="Download">Download</button>
+            </div>
+            <pre id="raw-json-output">— load a GPX file to see audit JSON —</pre>
+        </div>
+        
+        <div id="visualization-section">
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Time Delta KDE</h2>
+                    <button class="reset-button" onclick="resetChart('time-kde-plot')">Reset View</button>
+                </div>
+                <div class="bandwidth-control">
+                    <label for="time-bandwidth-slider">KDE Bandwidth (seconds)</label>
+                    <div class="slider-container">
+                        <input type="range" id="time-bandwidth-slider" 
+                               oninput="updateTimeKDE(parseFloat(this.value))">
+                        <span class="bandwidth-value" id="time-bandwidth-value">-</span>
+                    </div>
+                </div>
+                <div id="time-kde-plot"></div>
+            </div>
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Distance Delta KDE</h2>
+                    <button class="reset-button" onclick="resetChart('distance-kde-plot')">Reset View</button>
+                </div>
+                <div class="bandwidth-control">
+                    <label for="distance-bandwidth-slider">KDE Bandwidth (meters)</label>
+                    <div class="slider-container">
+                        <input type="range" id="distance-bandwidth-slider" 
+                               oninput="updateDistanceKDE(parseFloat(this.value))">
+                        <span class="bandwidth-value" id="distance-bandwidth-value">-</span>
+                    </div>
+                </div>
+                <div id="distance-kde-plot"></div>
+            </div>
+            
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Time-Distance Scatterplot</h2>
+                    <button class="reset-button" onclick="resetChart('time-distance-scatter')">Reset View</button>
+                </div>
+                <div id="time-distance-scatter"></div>
+            </div>
+
+            <div class="plot-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0;">Sequence-aware scatter (windowed)</h2>
+                    <button class="reset-button" onclick="resetChart('index-time-delta-scatter')">Reset View</button>
+                </div>
+                <div id="index-time-delta-scatter"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tools-launcher">
+        <button id="toggle-audit-map-container" onclick="toggleTool('audit-map-container')">map</button>
+        <button id="toggle-block-audit-popup" onclick="toggleTool('block-audit-popup')">block-audit</button>
+        <button id="toggle-scratchpad-popup" onclick="toggleTool('scratchpad-popup')">scratchpad</button>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="js/pipeline/gpx-ingestion-module.js"></script>
+    <script src="js/pipeline/timestamp-audit.js"></script>
+    <script src="js/pipeline/sampling-audit.js"></script>
+    <script src="js/pipeline/motion-audit.js"></script>
+    <script src="js/pipeline/audit-export-module.js"></script>
+    <script src="js/pipeline/local-block-audit.js"></script>
+    <script src="js/pipeline/kde-visualization-module.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/pipeline/map-audit-module.js"></script>
+    <script>
+        function buildVisualizationSeries(points) {
+            const timeDeltasMs = [];
+            const distanceDeltasGeometry = [];
+            const distanceDeltasTimeConditioned = [];
+            const timeDistancePairs = [];
+            let hasTimeProgression = false;
+            let previousPoint = null;
+            let previousTimestampMs = null;
+            let previousTimestampGpxIndex = null;
+            
+            const haversineForViz = (lat1, lon1, lat2, lon2) => {
+                if (typeof haversineDistance === 'function') {
+                    return haversineDistance(lat1, lon1, lat2, lon2);
+                }
+                const R = 6371000;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            };
+
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+                let distanceFromPrev = null;
+                let distanceFromPrevValid = false;
+
+                if (previousPoint) {
+                    distanceFromPrev = haversineForViz(previousPoint.lat, previousPoint.lon, point.lat, point.lon);
+                    distanceFromPrevValid = isFinite(distanceFromPrev) && distanceFromPrev >= 0;
+                    if (distanceFromPrevValid) {
+                        distanceDeltasGeometry.push({
+                            fromIndex: previousPoint.gpxIndex,
+                            toIndex: point.gpxIndex,
+                            ddMeters: distanceFromPrev
+                        });
+                    }
+                }
+
+                const timestampMs = point.timeRaw !== null ? Date.parse(point.timeRaw) : NaN;
+                const hasValidTimestamp = !isNaN(timestampMs);
+
+                if (hasValidTimestamp && previousTimestampMs !== null) {
+                    const deltaMs = timestampMs - previousTimestampMs;
+                    if (deltaMs > 0) {
+                        hasTimeProgression = true;
+                        const dtSec = deltaMs / 1000;
+                        timeDeltasMs.push({
+                            fromIndex: previousTimestampGpxIndex,
+                            toIndex: point.gpxIndex,
+                            dtSec: dtSec
+                        });
+
+                        if (distanceFromPrevValid) {
+                            distanceDeltasTimeConditioned.push({
+                                fromIndex: previousPoint.gpxIndex,
+                                toIndex: point.gpxIndex,
+                                ddMeters: distanceFromPrev
+                            });
+                            timeDistancePairs.push({
+                                fromIndex: previousPoint.gpxIndex,
+                                toIndex: point.gpxIndex,
+                                dtSec: dtSec,
+                                ddMeters: distanceFromPrev
+                            });
+                        }
+                    }
+                }
+
+                if (hasValidTimestamp) {
+                    previousTimestampMs = timestampMs;
+                    previousTimestampGpxIndex = point.gpxIndex;
+                }
+                previousPoint = point;
+            }
+
+            return {
+                timeDeltasMs: timeDeltasMs,
+                distanceDeltasM: hasTimeProgression ? distanceDeltasTimeConditioned : distanceDeltasGeometry,
+                timeDistancePairs: timeDistancePairs
+            };
+        }
+
+        async function loadAndParseGPX() {
+            const fileInput = document.getElementById('gpxFile');
+            const output = document.getElementById('output');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                output.textContent = 'Please select a GPX file first.';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            output.textContent = 'Loading and parsing GPX file...\n';
+            
+            try {
+                const result = await parseGPXFile(file);
+                const points = result.points;
+                const auditMetadata = auditTimestamps(points);
+                const samplingMetadata = auditSampling(points, file.name);
+                const motionMetadata = auditMotion(points);
+                const visualizationSeries = buildVisualizationSeries(points);
+
+                window.currentSamplingMetadata = visualizationSeries;
+                window.currentGpxFilename = file.name;
+                window.currentPoints = points;
+                window.currentIngestionAudit = result && result.audit ? result.audit.ingestion : null;
+                window.currentTemporalAudit = auditMetadata && auditMetadata.audit ? auditMetadata.audit.temporal : null;
+                window.currentSamplingAudit = samplingMetadata && samplingMetadata.audit ? samplingMetadata.audit.sampling : null;
+                window.currentMotionAudit = motionMetadata && motionMetadata.audit ? motionMetadata.audit.motion : null;
+                
+                // Clear any existing graphs before rendering new ones
+                const timeKdePlot = document.getElementById('time-kde-plot');
+                const distanceKdePlot = document.getElementById('distance-kde-plot');
+                const timeDistanceScatter = document.getElementById('time-distance-scatter');
+                const indexTimeDeltaScatter = document.getElementById('index-time-delta-scatter');
+                
+                if (timeKdePlot && timeKdePlot.querySelector('svg')) {
+                    timeKdePlot.innerHTML = '';
+                }
+                if (distanceKdePlot && distanceKdePlot.querySelector('svg')) {
+                    distanceKdePlot.innerHTML = '';
+                }
+                if (timeDistanceScatter && timeDistanceScatter.querySelector('svg')) {
+                    timeDistanceScatter.innerHTML = '';
+                }
+                if (indexTimeDeltaScatter && indexTimeDeltaScatter.querySelector('svg')) {
+                    indexTimeDeltaScatter.innerHTML = '';
+                }
+                // Clear global chart data variables to prevent slider from reloading old charts
+                window.kdeTimeDeltasSec = null;
+                window.kdeDistanceDeltasM = null;
+                window.kdeTimeBandwidthLog = null;
+                window.kdeDistanceBandwidthLog = null;
+                
+                visualizeSamplingData({
+                    timeDeltasMs: visualizationSeries.timeDeltasMs || [],
+                    distanceDeltasM: visualizationSeries.distanceDeltasM || [],
+                    timeDistancePairs: visualizationSeries.timeDistancePairs || []
+                });
+                
+                document.getElementById('visualization-section').style.display = 'block';
+                
+                const counts = result && result.audit && result.audit.ingestion && result.audit.ingestion.counts
+                    ? result.audit.ingestion.counts
+                    : null;
+                output.textContent = `${file.name}  ·  total: ${counts ? counts.totalPointCount : 0}  valid: ${counts ? counts.validPointCount : 0}  rejected: ${counts ? counts.rejectedPointCount : 0}`;
+
+                initializeAuditMap(points);
+
+                // Populate raw JSON viewer
+                const auditPayload = buildAuditExportPayload({
+                    fileName: file.name,
+                    ingestionAudit: window.currentIngestionAudit,
+                    temporalAudit: window.currentTemporalAudit,
+                    samplingAudit: window.currentSamplingAudit,
+                    motionAudit: window.currentMotionAudit
+                });
+                window.currentAuditPayload = auditPayload;
+                const jsonEl = document.getElementById('raw-json-output');
+                if (jsonEl) jsonEl.textContent = JSON.stringify(auditPayload, null, 2);
+                
+            } catch (error) {
+                output.textContent = 'Error: ' + error.message;
+                console.error('GPX parsing error:', error);
+            }
+        }
+        
+        
+        function downloadAuditJson() {
+            if (!window.currentAuditPayload) {
+                alert('No audit data available. Please run an audit first.');
+                return;
+            }
+            const baseFilename = window.currentGpxFilename
+                ? window.currentGpxFilename.replace(/\.gpx$/i, '')
+                : 'gpx';
+            exportAuditPayloadJSON(window.currentAuditPayload, `${baseFilename}.audit.json`);
+        }
+
+        function toggleTool(toolId) {
+            var bodyMap = {
+                'audit-map-container': 'audit-map-body',
+                'block-audit-popup':   'block-audit-body',
+                'scratchpad-popup':    'scratchpad-body'
+            };
+            function clampToViewport(container, left, top) {
+                var r = container.getBoundingClientRect();
+                left = Math.max(0, Math.min(left, window.innerWidth - r.width));
+                top = Math.max(0, Math.min(top, window.innerHeight - r.height));
+                return { left: left, top: top };
+            }
+            var bodyId = bodyMap[toolId];
+            if (!bodyId) return;
+            var container = document.getElementById(toolId);
+            var body = document.getElementById(bodyId);
+            if (!container || !body) return;
+            var willOpen = container.classList.contains('tool-hidden');
+            if (willOpen) {
+                container.classList.remove('tool-hidden');
+                body.classList.remove('hidden');
+                // Hidden-at-load tools can have invalid initial positions; place safely when opening.
+                if (toolId === 'audit-map-container') {
+                    container.style.right = 'auto';
+                    container.style.left = (window.innerWidth - container.offsetWidth - 24) + 'px';
+                    container.style.top = '24px';
+                } else if (toolId === 'scratchpad-popup') {
+                    container.style.left = '24px';
+                    container.style.top = (window.innerHeight - container.offsetHeight - 24) + 'px';
+                } else if (toolId === 'block-audit-popup' && !container.dataset.defaultPlaced) {
+                    // Default block-audit away from launcher/tool buttons.
+                    container.style.left = '24px';
+                    container.style.top = '96px';
+                    container.dataset.defaultPlaced = '1';
+                }
+                var clamped = clampToViewport(container, container.offsetLeft, container.offsetTop);
+                container.style.left = clamped.left + 'px';
+                container.style.top = clamped.top + 'px';
+                if (typeof window._floatingToolZIndex !== 'number') { window._floatingToolZIndex = 1000; }
+                container.style.zIndex = ++window._floatingToolZIndex;
+            } else {
+                container.classList.add('tool-hidden');
+            }
+            var launcher = document.getElementById('toggle-' + toolId);
+            if (launcher) launcher.classList.toggle('active', willOpen);
+            if (toolId === 'audit-map-container' && willOpen) {
+                if (typeof _auditMapInstance !== 'undefined' && _auditMapInstance) {
+                    setTimeout(function () { _auditMapInstance.invalidateSize(); }, 0);
+                }
+            }
+        }
+
+        // Make parser/audit/export functions available globally for console usage
+        window.parseGPX = parseGPX;
+        window.parseGPXFile = parseGPXFile;
+        window.auditTimestamps = auditTimestamps;
+        window.auditSampling = auditSampling;
+        window.auditMotion = auditMotion;
+        window.buildAuditExportPayload = buildAuditExportPayload;
+        window.exportAuditPayloadJSON = exportAuditPayloadJSON;
+        window.visualizeSamplingData = visualizeSamplingData;
+        window.resetChart = resetChart;
+        window.updateTimeKDE = updateTimeKDE;
+        window.updateDistanceKDE = updateDistanceKDE;
+        
+        // console.log('GPX Ingestion Module loaded. Use parseGPX(gpxString) or parseGPXFile(file) in console.');
+        // console.log('Timestamp Audit Module loaded. Use auditTimestamps(points) in console.');
+        // console.log('Sampling Audit Module loaded. Use auditSampling(points) in console.');
+        
+        // Render empty placeholder graphs on page load
+        function renderPlaceholderGraphs() {
+            const margin = { top: 40, right: 30, bottom: 60, left: 80 };
+            const width = 800 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            
+            // Placeholder for Time Delta KDE
+            const timeContainer = d3.select("#time-kde-plot");
+            timeContainer.selectAll("*").remove();
+            const timeSvg = timeContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const timeG = timeSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Draw axes
+            const timeXScale = d3.scaleLinear().domain([0.1, 100]).range([0, width]);
+            const timeYScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
+            timeG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(timeXScale).tickFormat(d => d.toFixed(1)))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            timeG.append("g")
+                .call(d3.axisLeft(timeYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            timeG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time Delta (seconds)");
+            timeG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Density");
+            
+            // Placeholder for Distance Delta KDE
+            const distContainer = d3.select("#distance-kde-plot");
+            distContainer.selectAll("*").remove();
+            const distSvg = distContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const distG = distSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const distXScale = d3.scaleLinear().domain([1, 1000]).range([0, width]);
+            const distYScale = d3.scaleLinear().domain([0, 1]).range([height, 0]);
+            distG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(distXScale).tickFormat(d => d.toFixed(0)))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            distG.append("g")
+                .call(d3.axisLeft(distYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            distG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Distance Delta (meters)");
+            distG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Density");
+            
+            // Placeholder for Time-Distance Scatterplot
+            const scatterContainer = d3.select("#time-distance-scatter");
+            scatterContainer.selectAll("*").remove();
+            const scatterSvg = scatterContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const scatterG = scatterSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            const scatterXScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
+            const scatterYScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
+            scatterG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(scatterXScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            scatterG.append("g")
+                .call(d3.axisLeft(scatterYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            scatterG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time Delta (seconds)");
+            scatterG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Distance Delta (meters)");
+            
+            // Placeholder for Index–Time Delta Scatterplot
+            const indexScatterContainer = d3.select("#index-time-delta-scatter");
+            indexScatterContainer.selectAll("*").remove();
+            const indexScatterSvg = indexScatterContainer.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            const indexScatterG = indexScatterSvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            const indexScatterXScale = d3.scaleLinear().domain([0, 100]).range([0, width]);
+            const indexScatterYScale = d3.scaleLinear().domain([0, 1000]).range([height, 0]);
+            indexScatterG.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(indexScatterXScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            indexScatterG.append("g")
+                .call(d3.axisLeft(indexScatterYScale))
+                .attr("stroke", "#ffffff")
+                .attr("color", "#ffffff");
+            indexScatterG.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + 45)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Index");
+            indexScatterG.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -50)
+                .attr("x", -height / 2)
+                .attr("fill", "#ffffff")
+                .style("text-anchor", "middle")
+                .text("Time delta (seconds, log-scaled)");
+        }
+        
+        // Render placeholders when page loads
+        window.addEventListener('DOMContentLoaded', renderPlaceholderGraphs);
+    </script>
+    <script>
+        /* ── Scratchpad: drag + toggle + bring-to-front ── */
+        (function () {
+            function initScratchpadPopup() {
+                var popup = document.getElementById('scratchpad-popup');
+                var header = document.getElementById('scratchpad-header');
+                var body = document.getElementById('scratchpad-body');
+                if (!popup || !header || !body) return;
+                var dragging = false, dragStartX = 0, dragStartY = 0, popupStartLeft = 0, popupStartTop = 0, headerClicked = false;
+                // Position: bottom-left
+                popup.style.left = '24px';
+                popup.style.top = (window.innerHeight - (body.classList.contains('hidden') ? header.offsetHeight : popup.offsetHeight) - 24) + 'px';
+                function clampToViewport(left, top) {
+                    var r = popup.getBoundingClientRect();
+                    left = Math.max(0, Math.min(left, window.innerWidth - r.width));
+                    top = Math.max(0, Math.min(top, window.innerHeight - r.height));
+                    return { left: left, top: top };
+                }
+                // Bring to front on any interaction
+                popup.addEventListener('mousedown', function () {
+                    if (typeof window._floatingToolZIndex !== 'number') { window._floatingToolZIndex = 1000; }
+                    popup.style.zIndex = ++window._floatingToolZIndex;
+                });
+                header.addEventListener('mousedown', function (e) {
+                    if (e.button !== 0) return;
+                    dragging = true;
+                    headerClicked = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    popupStartLeft = popup.offsetLeft;
+                    popupStartTop = popup.offsetTop;
+                });
+                window.addEventListener('mousemove', function (e) {
+                    if (!dragging) return;
+                    if (Math.abs(e.clientX - dragStartX) > 2 || Math.abs(e.clientY - dragStartY) > 2) headerClicked = false;
+                    var pos = clampToViewport(popupStartLeft + (e.clientX - dragStartX), popupStartTop + (e.clientY - dragStartY));
+                    popup.style.left = pos.left + 'px';
+                    popup.style.top = pos.top + 'px';
+                });
+                window.addEventListener('mouseup', function (e) {
+                    if (e.button !== 0) return;
+                    if (dragging && headerClicked) body.classList.toggle('hidden');
+                    dragging = false;
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initScratchpadPopup);
+            } else {
+                initScratchpadPopup();
+            }
+        })();
+
+        /* ── Audit-map: drag + toggle + bring-to-front (runs on page load, before GPX) ── */
+        (function () {
+            function initAuditMapPopup() {
+                var container = document.getElementById('audit-map-container');
+                var bar = document.getElementById('audit-map-bar');
+                var body = document.getElementById('audit-map-body');
+                if (!container || !bar || !body) return;
+                var dragging = false, dragStartX = 0, dragStartY = 0, popupStartLeft = 0, popupStartTop = 0, headerClicked = false;
+                // Position: top-right (convert CSS right:24 to left-based)
+                container.style.left = (window.innerWidth - container.offsetWidth - 24) + 'px';
+                container.style.top = '24px';
+                container.style.right = 'auto';
+                function clampToViewport(left, top) {
+                    var r = container.getBoundingClientRect();
+                    left = Math.max(0, Math.min(left, window.innerWidth - r.width));
+                    top = Math.max(0, Math.min(top, window.innerHeight - r.height));
+                    return { left: left, top: top };
+                }
+                // Bring to front on any interaction
+                container.addEventListener('mousedown', function () {
+                    if (typeof window._floatingToolZIndex !== 'number') { window._floatingToolZIndex = 1000; }
+                    container.style.zIndex = ++window._floatingToolZIndex;
+                });
+                bar.addEventListener('mousedown', function (e) {
+                    if (e.button !== 0) return;
+                    dragging = true;
+                    headerClicked = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    popupStartLeft = container.offsetLeft;
+                    popupStartTop = container.offsetTop;
+                });
+                window.addEventListener('mousemove', function (e) {
+                    if (!dragging) return;
+                    if (Math.abs(e.clientX - dragStartX) > 2 || Math.abs(e.clientY - dragStartY) > 2) headerClicked = false;
+                    var pos = clampToViewport(popupStartLeft + (e.clientX - dragStartX), popupStartTop + (e.clientY - dragStartY));
+                    container.style.left = pos.left + 'px';
+                    container.style.top = pos.top + 'px';
+                });
+                window.addEventListener('mouseup', function (e) {
+                    if (e.button !== 0) return;
+                    if (dragging && headerClicked) {
+                        body.classList.toggle('hidden');
+                        // If Leaflet map exists and panel just expanded, invalidate so tiles render
+                        if (!body.classList.contains('hidden') && typeof _auditMapInstance !== 'undefined' && _auditMapInstance) {
+                            setTimeout(function () { _auditMapInstance.invalidateSize(); }, 0);
+                        }
+                    }
+                    dragging = false;
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAuditMapPopup);
+            } else {
+                initAuditMapPopup();
+            }
+        })();
+    </script>
+</body>
+</html>
