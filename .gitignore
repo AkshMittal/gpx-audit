@@ -5,3 +5,7 @@ datasets/
 .tools/
 .env
 .env.*
+.vscode/
+.vscode/*
+reference/
+reference/* 
