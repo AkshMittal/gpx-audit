@@ -22,5 +22,3 @@ datasets/
 # Generated run outputs (pilot, full runs, etc.)
 runs/
 
-# Workbench visualization notes — kept on main branch workbench
-visualization-notes.html

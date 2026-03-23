@@ -58,7 +58,7 @@ Versioning:
 ```json
 {
   "metadata": {
-    "schemaVersion": "1.0.0",
+    "schemaVersion": "2.0.0",
     "generatedAtUtc": "2026-02-26T18:10:51.063Z",
     "source": { "fileName": "example.gpx" },
     "summary": { "totalPointCount": 119 }
@@ -128,7 +128,7 @@ Core outputs:
 - `counts.rejectedPointCount`
 - `counts.pointTypeCounts`
 - `rejections.count`, `rejections.events`
-- Context flags (e.g., `hasMultiplePointTypes`, `hasAnyTimestamps`)
+- Context flags (e.g., `hasMultiplePointTypes`, `hasAnyTimestampValues`)
 
 ### 2) Temporal Audit
 
@@ -196,7 +196,7 @@ Core outputs:
 - Delta statistics (`count`, `minMs`, `medianMs`, `maxMs`)
 - Clustering metrics (`clusterCountSorted`, `clusterCountSequential`, stability ratios)
 - Normalization metrics (`globalFinal*Deviation*`)
-- Distance delta accounting (geometry-conditioned and time-conditioned counts)
+- Distance delta accounting (geometry-only and time-conditioned counts)
 
 ### 4) Motion Audit
 
@@ -273,7 +273,7 @@ This list is contextual and non-causal.
 ## Validation Position
 
 Pipeline behavior is validated through synthetic/adversarial GPX suites to stress edge conditions and verify anomaly logic under controlled patterns.  
-A separate real-world case-study report is used for prevalence/intensity statistics at dataset scale.
+Reproducibility is anchored to the tracked fixture corpus and current `main` workbench flow; dataset-scale prevalence/intensity analysis remains a separate reporting layer.
 
 ---
 
@@ -294,6 +294,9 @@ Therefore:
 
 A major pipeline limitation is that sampling regime detection is currently implemented for **time-based sampling only**.  
 Distance-based sampling regime detection is not yet implemented at equivalent depth.
+
+Backtracking classification is currently chronology-anchor based only.  
+The pipeline does not yet distinguish whether a backtracking run is a true linear timestamp regression versus a stitched segment block that is simply behind the active temporal anchor.
 
 ---
 
