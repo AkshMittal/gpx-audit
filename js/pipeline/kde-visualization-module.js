@@ -725,9 +725,15 @@ function renderIndexTimeDeltaScatter(containerId, pairs) {
   const width = 800 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
 
-  const WINDOW_SIZE = 200;
-  const windowSize = Math.min(WINDOW_SIZE, pairs.length);
-  const maxStart = Math.max(0, pairs.length - windowSize);
+  const MAX_WINDOW_SIZE = 200;
+  const MIN_WINDOW_SIZE = 30;
+  const SMALL_DATA_WINDOW_RATIO = 0.7;
+  const pairCount = pairs.length;
+  const adaptiveWindow = Math.round(pairCount * SMALL_DATA_WINDOW_RATIO);
+  const windowSize = pairCount > MAX_WINDOW_SIZE
+    ? MAX_WINDOW_SIZE
+    : Math.min(pairCount, Math.max(MIN_WINDOW_SIZE, adaptiveWindow));
+  const maxStart = Math.max(0, pairCount - windowSize);
 
   const svg = container.append("svg")
     .attr("width", width + margin.left + margin.right)
@@ -982,48 +988,49 @@ function renderIndexTimeDeltaScatter(containerId, pairs) {
       .text(anchorLabels[i]);
   });
 
-  let slider;
-  let labelSpan;
-  if (maxStart > 0) {
-    const controlDiv = container.append("div")
-      .style("margin-top", "8px")
-      .style("display", "flex")
-      .style("align-items", "center")
-      .style("gap", "8px");
+  const formatWindowRange = (start) => {
+    const clampedStart = Math.max(0, Math.min(start, maxStart));
+    const end = Math.min(pairCount, clampedStart + windowSize);
+    return `${clampedStart} – ${end}`;
+  };
 
-    controlDiv.append("label")
-      .attr("for", `${containerId}-window-slider`)
-      .text("Pan window (event index): ");
+  const controlDiv = container.append("div")
+    .style("margin-top", "8px")
+    .style("display", "flex")
+    .style("align-items", "center")
+    .style("gap", "8px");
 
-    slider = controlDiv.append("input")
-      .attr("id", `${containerId}-window-slider`)
-      .attr("type", "range")
-      .attr("min", 0)
-      .attr("max", maxStart)
-      .attr("value", 0)
-      .attr("step", 1)
-      .style("flex", "1");
+  controlDiv.append("label")
+    .attr("for", `${containerId}-window-slider`)
+    .text("Pan window (event index): ");
 
-    labelSpan = controlDiv.append("span")
-      .style("min-width", "100px")
-      .text(`0 – ${windowSize}`);
+  const slider = controlDiv.append("input")
+    .attr("id", `${containerId}-window-slider`)
+    .attr("type", "range")
+    .attr("min", 0)
+    .attr("max", maxStart)
+    .attr("value", 0)
+    .attr("step", 1)
+    .property("disabled", maxStart === 0)
+    .style("flex", "1");
 
-    slider.on("input", function() {
-      const val = +this.value;
-      currentWindowStart = val;
-      labelSpan.text(`${val} – ${val + windowSize}`);
-      redraw(val);
-    });
-  }
+  const labelSpan = controlDiv.append("span")
+    .style("min-width", "100px")
+    .text(formatWindowRange(0));
+
+  slider.on("input", function() {
+    const val = +this.value;
+    currentWindowStart = val;
+    labelSpan.text(formatWindowRange(val));
+    redraw(val);
+  });
 
   window[`${containerId}_reset`] = function() {
     yScale.domain([yLogMin, yLogMax]);
     currentWindowStart = 0;
     redraw(0);
-    if (slider) {
-      slider.property("value", 0);
-      if (labelSpan) labelSpan.text(`0 – ${windowSize}`);
-    }
+    slider.property("value", 0);
+    labelSpan.text(formatWindowRange(0));
     zoomG.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
   };
 
