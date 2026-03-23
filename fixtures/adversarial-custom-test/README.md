@@ -1,10 +1,9 @@
 # Adversarial GPX (`custom-test` cohort)
 
-GPX files are **copies** of `test-gpx-adversarial/adv-*.gpx` renamed so `track_uid` never collides with Hikr Mongo ids:
+GPX files live in `fixtures/adversarial-custom-test/gpx/` and are named `adv-*.gpx`.
 
-- **Pattern:** `custom-test-<original-stem>.gpx`  
-  Example: `adv-01-exact-2pct-boundary.gpx` → `custom-test-adv-01-exact-2pct-boundary.gpx`
-- **`track_uid`** = basename without `.gpx` (e.g. `custom-test-adv-01-exact-2pct-boundary`).
+- **Pattern:** `adv-<id>-<scenario>.gpx`
+- **`track_uid`** remains basename without `.gpx` (for fixture-driven local runs).
 
 Files live under **`fixtures/adversarial-custom-test/`** (tracked in git) — not under `datasets/` (gitignored).
 
@@ -16,27 +15,19 @@ Assertion targets and the latest harness run output for the 20 adversarial cases
 node scripts/generate-gpx-adversarial-suite.js
 ```
 
-That script writes **`adv-*.gpx`** under `test-gpx-adversarial/` and writes **`EXPECTED.md`** + **`REPORT.md`** in this directory.
+That script writes **`adv-*.gpx`** under `fixtures/adversarial-custom-test/gpx/` and writes **`EXPECTED.md`** + **`REPORT.md`** in this directory.
 
 ## Regenerate audit JSON (v2)
 
 From repo root:
 
 ```bash
-npm run generate-adversarial-custom-test-audits
+node scripts/generate-gpx-adversarial-suite.js
 ```
 
-Or:
+This writes fixture JSON snapshots directly to:
 
-```bash
-node scripts/run-csv-pilot.js --phase generate --run-name adversarial-custom-test --parsed-dir fixtures/adversarial-custom-test/gpx
-```
-
-Output: `runs/adversarial-custom-test/json/*.audit.v2.json` — sync into this repo copy:
-
-```powershell
-Copy-Item runs/adversarial-custom-test/json/*.audit.v2.json fixtures/adversarial-custom-test/json/
-```
+- `fixtures/adversarial-custom-test/json/adv-*.audit.v2.json`
 
 ## Import to Supabase (`data_source = custom-test`)
 

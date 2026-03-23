@@ -1,6 +1,6 @@
 # Project documentation
 
-Long-lived reference for the GPX audit **pipeline**, **database/import** tooling, the **case-study** UI, and **roadmap**.
+Long-lived reference for the GPX audit **pipeline**, workbench support modules, and **roadmap**.
 
 ## [`pipeline/`](pipeline/)
 
@@ -12,22 +12,12 @@ Audit pipeline scope, per-module specs, and v2 JSON glossary.
 | [`gpx-ingestion-module.md`](pipeline/gpx-ingestion-module.md) | Ingestion |
 | [`timestamp-audit.md`](pipeline/timestamp-audit.md) | Temporal audit |
 | [`sampling-audit.md`](pipeline/sampling-audit.md) | Sampling audit |
+| [`motion-audit.md`](pipeline/motion-audit.md) | Motion metrics and anomaly primitives |
+| [`kde-visualization-module.md`](pipeline/kde-visualization-module.md) | Sequence-aware scatter + window slider behavior |
+| [`local-block-audit.md`](pipeline/local-block-audit.md) | Local block clustering for workbench track details |
+| [`map-audit-module.md`](pipeline/map-audit-module.md) | Leaflet map rendering and anomaly overlays |
+| [`scratchpad-tool.md`](pipeline/scratchpad-tool.md) | Scratchpad behavior for ad hoc inspection |
 | [`json-schema-v2-glossary.md`](pipeline/json-schema-v2-glossary.md) | v2 JSON paths glossary |
-
-## [`supabase/`](supabase/)
-
-Relational mapping and CLI import/upload.
-
-| Doc | Topic |
-|-----|--------|
-| [`supabase-v2-upsert-mapping.md`](supabase/supabase-v2-upsert-mapping.md) | Audit JSON → relational tables |
-| [`import-audit-supabase.md`](supabase/import-audit-supabase.md) | Import scripts, `data_source`, backfill SQL |
-
-## [`case-study/`](case-study/)
-
-| Doc | Topic |
-|-----|--------|
-| [`case-study-frontend.md`](case-study/case-study-frontend.md) | Static case-study UI, Supabase access, client cache |
 
 ## Root of `project/`
 

@@ -6,8 +6,8 @@ This repository’s written material is organized as **stable reference** vs **t
 
 | Path | What it is |
 |------|------------|
-| **[`project/`](project/README.md)** | Long-lived docs: GPX audit **pipeline** specs, **Supabase** mapping & import, **case-study** browser UI, product roadmap. |
-| **[`reports/`](reports/README.md)** | Dated notes: full-run reconciliations, adversarial harness snapshots, branch/run metadata. |
+| **[`project/`](project/README.md)** | Long-lived docs: GPX audit **pipeline** specs, workbench support modules, and product roadmap. |
+| **[`reports/`](reports/)** | Dated notes: adversarial harness snapshots and run metadata. |
 
 ## Where to start
 
@@ -15,9 +15,9 @@ This repository’s written material is organized as **stable reference** vs **t
 |-----------------|------|
 | Understand the end-to-end audit pipeline and JSON contract | [`project/pipeline/post-1-pipeline-technical-writeup.md`](project/pipeline/post-1-pipeline-technical-writeup.md) |
 | Look up v2 JSON paths | [`project/pipeline/json-schema-v2-glossary.md`](project/pipeline/json-schema-v2-glossary.md) |
-| Map audit JSON → relational tables / Supabase | [`project/supabase/supabase-v2-upsert-mapping.md`](project/supabase/supabase-v2-upsert-mapping.md) |
-| Run import scripts or fix `data_source` | [`project/supabase/import-audit-supabase.md`](project/supabase/import-audit-supabase.md) |
-| How the case-study static UI queries Supabase | [`project/case-study/case-study-frontend.md`](project/case-study/case-study-frontend.md) |
+| Understand sequence-aware scatter and slider behavior | [`project/pipeline/kde-visualization-module.md`](project/pipeline/kde-visualization-module.md) |
+| Understand motion metrics and anomaly primitives | [`project/pipeline/motion-audit.md`](project/pipeline/motion-audit.md) |
+| Understand local block and map modules used by workbench | [`project/pipeline/local-block-audit.md`](project/pipeline/local-block-audit.md), [`project/pipeline/map-audit-module.md`](project/pipeline/map-audit-module.md) |
 
 ## Repository root
 
@@ -26,4 +26,4 @@ This repository’s written material is organized as **stable reference** vs **t
 
 ## Branch note
 
-[`BRANCH_POLICY.md`](../BRANCH_POLICY.md) describes what belongs on `main` vs `case-study`. This `docs/` tree is shared in spirit; some paths reference case-study-only assets (e.g. `case-study.html`, `fixtures/adversarial-custom-test/`).
+[`BRANCH_POLICY.md`](../BRANCH_POLICY.md) describes what belongs on `main` vs `case-study`. The `docs/` tree on `main` should only reference assets present on `main`.

@@ -14,7 +14,7 @@ Artifacts generated/updated:
 
 - `fixtures/adversarial-custom-test/EXPECTED.md`
 - `fixtures/adversarial-custom-test/REPORT.md`
-- `test-gpx-adversarial/adv-*.gpx` (20 files regenerated)
+- `fixtures/adversarial-custom-test/gpx/adv-*.gpx` (20 files regenerated)
 
 ## Result Summary
 
@@ -50,6 +50,6 @@ Updated `scripts/generate-gpx-adversarial-suite.js` metric extraction to read sc
 
 ## Notes
 
-- The suite rewrites `test-gpx-adversarial/adv-*.gpx` and writes `fixtures/adversarial-custom-test/EXPECTED.md` and `fixtures/adversarial-custom-test/REPORT.md` on each run.
+- The suite rewrites `fixtures/adversarial-custom-test/gpx/adv-*.gpx` and writes `fixtures/adversarial-custom-test/EXPECTED.md` and `fixtures/adversarial-custom-test/REPORT.md` on each run.
 - This status reflects the final rerun where the harness and pipeline schema were aligned.
 

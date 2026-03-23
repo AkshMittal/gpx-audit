@@ -3,9 +3,9 @@ const path = require("path");
 const vm = require("vm");
 
 const ROOT = path.resolve(__dirname, "..");
-const TEST_DIR = path.join(ROOT, "test-gpx-adversarial");
+const FIXTURE_GPX_DIR = path.join(ROOT, "fixtures", "adversarial-custom-test", "gpx");
 const FIXTURE_DOC_DIR = path.join(ROOT, "fixtures", "adversarial-custom-test");
-const JSON_DIR = path.resolve(ROOT, "..", "json");
+const FIXTURE_JSON_DIR = path.join(ROOT, "fixtures", "adversarial-custom-test", "json");
 const REPORT_PATH = path.join(FIXTURE_DOC_DIR, "REPORT.md");
 const EXPECTED_PATH = path.join(FIXTURE_DOC_DIR, "EXPECTED.md");
 
@@ -154,7 +154,7 @@ function runCase(caseDef) {
     ? caseDef.xmlBuilder()
     : toTrackGpx(caseDef.pointsBuilder(), caseDef.id);
 
-  const gpxPath = path.join(TEST_DIR, `${caseDef.id}.gpx`);
+  const gpxPath = path.join(FIXTURE_GPX_DIR, `${caseDef.id}.gpx`);
   fs.writeFileSync(gpxPath, xml, "utf8");
 
   const parsed = parseGPX(xml);
@@ -172,7 +172,7 @@ function runCase(caseDef) {
     motionAudit: motionResult.audit.motion
   });
 
-  const jsonPath = path.join(JSON_DIR, `${caseDef.id}.audit.json`);
+  const jsonPath = path.join(FIXTURE_JSON_DIR, `${caseDef.id}.audit.v2.json`);
   fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), "utf8");
 
   const m = metric(payload);
@@ -790,9 +790,9 @@ function renderReport(results) {
 }
 
 function main() {
-  ensureDir(TEST_DIR);
+  ensureDir(FIXTURE_GPX_DIR);
   ensureDir(FIXTURE_DOC_DIR);
-  ensureDir(JSON_DIR);
+  ensureDir(FIXTURE_JSON_DIR);
   loadBrowserModules();
 
   const cases = buildCases();
@@ -802,7 +802,8 @@ function main() {
   fs.writeFileSync(REPORT_PATH, renderReport(results), "utf8");
 
   const failed = results.filter((r) => r.status === "FAIL");
-  console.log(`Generated ${results.length} adversarial GPX files in: ${TEST_DIR}`);
+  console.log(`Generated ${results.length} adversarial GPX files in: ${FIXTURE_GPX_DIR}`);
+  console.log(`Generated ${results.length} adversarial JSON files in: ${FIXTURE_JSON_DIR}`);
   console.log(`Expected outcomes file: ${EXPECTED_PATH}`);
   console.log(`Report file: ${REPORT_PATH}`);
   console.log(`Result: ${results.length - failed.length}/${results.length} non-failing cases`);
