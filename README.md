@@ -1,20 +1,30 @@
 # gpx-audit
 
-GPX **ingestion** and **audit** pipeline (temporal, sampling, motion) with a unified JSON export, optional **Supabase** relational mapping, and a static **case-study** explorer UI.
+GPX audit toolkit for ingestion, temporal integrity checks, sampling diagnostics, and motion diagnostics, with schema-based JSON output and optional Supabase-backed exploration.
 
-## Quick links
+## What this branch contains (`case-study`)
 
-| | |
-|--|--|
-| **Documentation** | [`docs/README.md`](docs/README.md) |
-| **Security & keys** | [`SECURITY.md`](SECURITY.md) |
-| **License** | [ISC](LICENSE) (same as `package.json`) |
-| **Branch layout** | [`BRANCH_POLICY.md`](BRANCH_POLICY.md) |
+- The DB-backed case study frontend: `case-study.html`
+- Pipeline modules under `js/pipeline/`
+- Documentation for pipeline, Supabase mapping/import, and reports
+- Adversarial fixture corpus under `fixtures/adversarial-custom-test/`
 
-## Case-study UI (this branch)
+## Start here
 
-Open `case-study.html` in a browser (local file or static host). Configure `window.CASE_STUDY_CONFIG` with your Supabase URL and anon key. See [`docs/project/case-study/case-study-frontend.md`](docs/project/case-study/case-study-frontend.md).
+- Documentation hub: [`docs/README.md`](docs/README.md)
+- Project docs index: [`docs/project/README.md`](docs/project/README.md)
+- Pipeline technical writeup: [`docs/project/post-1-pipeline-technical-writeup.md`](docs/project/post-1-pipeline-technical-writeup.md)
+- Case study frontend doc: [`docs/project/frontend/case-study-frontend.md`](docs/project/frontend/case-study-frontend.md)
+- Formal report: [`docs/reports/case-study-formal-report.md`](docs/reports/case-study-formal-report.md)
+- Branch policy: [`BRANCH_POLICY.md`](BRANCH_POLICY.md)
 
-## Pipeline
+## Frontends
 
-The technical writeup and module specs live under [`docs/project/pipeline/`](docs/project/pipeline/README.md).
+- Case study explorer (DB-backed): `case-study.html`
+- Single-file GPX workbench (main-focused deploy): [`https://gpx-audit.vercel.app/`](https://gpx-audit.vercel.app/)
+- Case study deployment: [`https://gpx-audit-case-study.vercel.app/`](https://gpx-audit-case-study.vercel.app/)
+
+## Notes
+
+- Keep secrets out of source control: [`SECURITY.md`](SECURITY.md)
+- License: [`LICENSE`](LICENSE) (ISC)
