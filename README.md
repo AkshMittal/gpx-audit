@@ -10,6 +10,7 @@ anything.
 **Methodology note:** https://audit-methodology.vercel.app/
 **Module spec writeup:** [GPX Audit — pipeline module spec](https://medium.com/@akshmittal/gpx-audit-pipeline-module-spec-technical-writeup-393b3cb7cff5)
 
+**Demo images:**  ![image 1](images\workbench(1).png) ![image 2](images\workbench(2).png)
 ---
 
 ## Why an audit layer exists at all
